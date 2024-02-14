@@ -87,8 +87,8 @@ const main = function () {
     return elt;
   }
 
-  const visual = createElt(
-    "_visual",
+  const playArea = createElt(
+    "_playArea",
     { "--top": TOP, "--left": LEFT, "--width": WIDTH, "--height": HEIGHT },
     ["play-area", "transparent"]
   );
@@ -324,7 +324,7 @@ const main = function () {
 
   setTimeout(() => {
     ball.classList.remove("transparent");
-    visual.classList.remove("transparent");
+    playArea.classList.remove("transparent");
     paddle.classList.remove("transparent");
   }, 1);
   setTimeout(() => {
