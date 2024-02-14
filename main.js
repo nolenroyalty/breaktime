@@ -406,31 +406,51 @@ const main = function () {
             }
           };
 
-          if (!hasCollidedX && movingRight && intersectsFrom.left) {
+          // Related to the above comment, it's important that our !hasCollided checks are inside the update
+          // intersection logic, instead of guarding our update to our strongest intersection function for
+          // an element. This is relevant when we collide with two elements on the same tick. Let's say that
+          // we collide with two elements, A and B.
+          // We're moving to the right and up.
+          // For A, we intersect from the bottom. For B, we intersect from the left and bottom.
+          // We want to avoid reversing our vertical direction twice, so it's important that we check !hasCollidedY.
+          // But we only want to additionally reverse our *horizontal* direction if, without A, we would have chosen
+          // to reverse B's horizontal direction instead of its vertical directon (that is, if the horizontal strength
+          // is weakest). If the !hasCollided checks are in the outer if statement we wouldn't check our horizontal
+          // strength against the weakest vertical strength and we'd always reverse our horizontal direction.
+
+          if (movingRight && intersectsFrom.left) {
             maybeUpdateIntersection(intersectsFrom.left, () => {
-              ensureToLeftOf(newBall, eventBounds.left);
-              direction.x *= -1;
-              hasCollidedX = true;
+              if (!hasCollidedX) {
+                ensureToLeftOf(newBall, eventBounds.left);
+                direction.x *= -1;
+                hasCollidedX = true;
+              }
             });
-          } else if (!hasCollidedX && movingLeft && intersectsFrom.right) {
+          } else if (movingLeft && intersectsFrom.right) {
             maybeUpdateIntersection(intersectsFrom.right, () => {
-              ensureToRightOf(newBall, eventBounds.right);
-              direction.x *= -1;
-              hasCollidedX = true;
+              if (!hasCollidedX) {
+                ensureToRightOf(newBall, eventBounds.right);
+                direction.x *= -1;
+                hasCollidedX = true;
+              }
             });
           }
 
-          if (!hasCollidedY && movingDown && intersectsFrom.above) {
+          if (movingDown && intersectsFrom.above) {
             maybeUpdateIntersection(intersectsFrom.above, () => {
-              ensureAbove(newBall, eventBounds.top);
-              direction.y *= -1;
-              hasCollidedY = true;
+              if (!hasCollidedY) {
+                ensureAbove(newBall, eventBounds.top);
+                direction.y *= -1;
+                hasCollidedY = true;
+              }
             });
-          } else if (!hasCollidedY && movingUp && intersectsFrom.below) {
+          } else if (movingUp && intersectsFrom.below) {
             maybeUpdateIntersection(intersectsFrom.below, () => {
-              ensureBelow(newBall, eventBounds.bottom);
-              direction.y *= -1;
-              hasCollidedY = true;
+              if (!hasCollidedY) {
+                ensureBelow(newBall, eventBounds.bottom);
+                direction.y *= -1;
+                hasCollidedY = true;
+              }
             });
           }
 
