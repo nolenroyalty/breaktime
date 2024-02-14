@@ -6,7 +6,7 @@ const getEvents = () => {
 
 const css = `
 :root {
-  --color-black: black;
+  --color-black: hsl(235deg 15% 15%);
   --color-playarea: hsl(235deg 15% 67%);
 }
 
@@ -33,6 +33,19 @@ const css = `
   will-change: transform;
   transition: transform 0.1s linear, opacity 1s ease;
   z-index: 1001;
+}
+
+.ball::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 20px;
+  height: 20px;
+  background-color: green;
+  transform: translate(0, 15px);
 }
 
 .paddle {
@@ -79,10 +92,10 @@ const main = function () {
   const BOTTOM = Math.max(bottomPlayArea.bottom, window.innerHeight - 25) - 25;
   const WIDTH = RIGHT - LEFT;
   const HEIGHT = BOTTOM - TOP;
+  // It's gross but these need to be global :/
   let paddleLeft = WIDTH / 2 - 50;
   let ballLeft = WIDTH / 2;
   let ballTop = HEIGHT - 100;
-  const direction = { x: 1, y: 1 };
 
   function createElt(id, style = {}, classList = []) {
     document.querySelector(`#${id}`)?.remove();
@@ -116,8 +129,30 @@ const main = function () {
 
   const clamp = (min, max, value) => Math.min(Math.max(min, value), max);
 
+  function addTransform(elt, transform, key) {
+    const prefix = `data-transform-`;
+    elt.setAttribute(prefix + key, transform);
+    const transforms = [];
+    for (const [k, v] of Object.entries(elt.dataset)) {
+      if (k.startsWith("transform")) {
+        transforms.push(v);
+      }
+    }
+    elt.style.transform = transforms.join(" ");
+  }
+
   function translate(elt, x, y) {
-    elt.style.transform = `translate(${x}px, ${y}px)`;
+    addTransform(elt, `translate(${x}px, ${y}px)`, "translate");
+  }
+
+  function rotateForVector(elt, dx, dy) {
+    // dy is negative because the y axis is inverted in the browser.
+    let angle = Math.atan2(dy, dx) * (180 / Math.PI);
+    if (angle < 0) {
+      angle += 360;
+    }
+
+    addTransform(elt, `rotate(${angle}deg)`, "rotate");
   }
 
   const getIntersectionState = ({ oldBall, newBall, elt }) => {
@@ -214,6 +249,8 @@ const main = function () {
   }
 
   function mainLoop() {
+    const direction = { x: 1, y: 1 };
+
     const translatedBounds = (obj) => {
       const bounds = obj.getBoundingClientRect();
       return {
@@ -374,6 +411,7 @@ const main = function () {
       });
 
       translate(ball, newBall.left, newBall.top);
+      rotateForVector(ball, direction.x, direction.y);
       ballLeft = newBall.left;
       ballTop = newBall.top;
     }
