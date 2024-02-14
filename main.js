@@ -72,8 +72,10 @@ const main = function () {
   const BOTTOM = Math.max(bottomPlayArea.bottom, window.innerHeight - 25) - 25;
   const WIDTH = RIGHT - LEFT;
   const HEIGHT = BOTTOM - TOP;
-
-  const clamp = (min, max, value) => Math.min(Math.max(min, value), max);
+  let paddleLeft = WIDTH / 2 - 50;
+  let ballLeft = WIDTH / 2;
+  let ballTop = HEIGHT - 100;
+  const direction = { x: 1, y: 1 };
 
   function createElt(id, style = {}, classList = []) {
     document.querySelector(`#${id}`)?.remove();
@@ -105,86 +107,25 @@ const main = function () {
     ["paddle", "transparent"]
   );
 
-  let paddleLeft = WIDTH / 2 - 50;
-  let ballLeft = WIDTH / 2;
-  let ballTop = HEIGHT - 100;
-  const direction = { x: 1, y: 1 };
+  const clamp = (min, max, value) => Math.min(Math.max(min, value), max);
 
   function translate(elt, x, y) {
     elt.style.transform = `translate(${x}px, ${y}px)`;
   }
 
-  function paddleLoop() {
-    translate(paddle, paddleLeft, 0);
-
-    const keysPressed = { ArrowLeft: false, ArrowRight: false };
-    document.addEventListener("keydown", (e) => {
-      if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
-        e.preventDefault();
-        keysPressed[e.key] = true;
-      }
-    });
-    document.addEventListener("keyup", (e) => {
-      if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
-        keysPressed[e.key] = false;
-      }
-    });
-
-    function loop() {
-      if (keysPressed.ArrowLeft) {
-        paddleLeft = clamp(0, WIDTH - 100, paddleLeft - 2);
-      }
-      if (keysPressed.ArrowRight) {
-        paddleLeft = clamp(0, WIDTH - 100, paddleLeft + 2);
-      }
-      translate(paddle, paddleLeft, 0);
-    }
-
-    return loop;
-  }
-
-  const paddleInterval = setInterval(paddleLoop(), 1000 / 60);
-
-  const translatedBounds = (obj) => {
-    const bounds = obj.getBoundingClientRect();
-    return {
-      left: bounds.left - LEFT,
-      right: bounds.right - LEFT,
-      top: bounds.top - TOP,
-      bottom: bounds.bottom - TOP,
-    };
-  };
-
-  const ensureToLeftOf = (ballBox, left) => {
-    ballBox.left = left - BALL_SIZE;
-    ballBox.right = left;
-  };
-  const ensureToRightOf = (ballBox, right) => {
-    ballBox.right = right + BALL_SIZE;
-    ballBox.left = right;
-  };
-  const ensureAbove = (ballBox, top) => {
-    ballBox.top = top - BALL_SIZE;
-    ballBox.bottom = top;
-  };
-  const ensureBelow = (ballBox, bottom) => {
-    ballBox.bottom = bottom + BALL_SIZE;
-    ballBox.top = bottom;
-  };
-
-  const intersectsFromLeft = (ball, bounds) =>
-    ball.right >= bounds.left && ball.left <= bounds.left;
-
-  const intersectsFromRight = (ball, bounds) =>
-    ball.left <= bounds.right && ball.right >= bounds.right;
-
-  const intersectsFromAbove = (ball, bounds) =>
-    ball.bottom >= bounds.top && ball.top <= bounds.top;
-
-  const intersectsFromBelow = (ball, bounds) =>
-    ball.top <= bounds.bottom && ball.bottom >= bounds.bottom;
-
   const getIntersectionState = ({ oldBall, newBall, elt }) => {
+    const intersectsFromLeft = (ball, bounds) =>
+      ball.right >= bounds.left && ball.left <= bounds.left;
+
+    const intersectsFromRight = (ball, bounds) =>
+      ball.left <= bounds.right && ball.right >= bounds.right;
+
+    const intersectsFromAbove = (ball, bounds) =>
+      ball.bottom >= bounds.top && ball.top <= bounds.top;
+
+    const intersectsFromBelow = (ball, bounds) =>
+      ball.top <= bounds.bottom && ball.bottom >= bounds.bottom;
+
     const doesNotIntersect =
       newBall.bottom < elt.top ||
       newBall.top > elt.bottom ||
@@ -208,9 +149,77 @@ const main = function () {
     return { intersects: true, intersectsFrom };
   };
 
-  translate(ball, ballLeft, ballTop);
-  const mainLoop = () => {
-    const interval = setInterval(() => {
+  function wrappedIntervalLoop(fn, label) {
+    return () => {
+      try {
+        fn();
+      } catch (e) {
+        console.log(`${label} ERROR: ${e}`);
+      }
+    };
+  }
+
+  function paddleLoop() {
+    const keysPressed = { ArrowLeft: false, ArrowRight: false };
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+        e.preventDefault();
+        keysPressed[e.key] = true;
+      }
+    });
+    document.addEventListener("keyup", (e) => {
+      if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+        keysPressed[e.key] = false;
+      }
+    });
+
+    function loop() {
+      let shouldTranslate = false;
+      if (keysPressed.ArrowLeft) {
+        paddleLeft = clamp(0, WIDTH - 100, paddleLeft - 2);
+        shouldTranslate = true;
+      }
+      if (keysPressed.ArrowRight) {
+        paddleLeft = clamp(0, WIDTH - 100, paddleLeft + 2);
+        shouldTranslate = true;
+      }
+      if (shouldTranslate) {
+        translate(paddle, paddleLeft, 0);
+      }
+    }
+
+    return wrappedIntervalLoop(loop, "PADDLE");
+  }
+
+  function mainLoop() {
+    const translatedBounds = (obj) => {
+      const bounds = obj.getBoundingClientRect();
+      return {
+        left: bounds.left - LEFT,
+        right: bounds.right - LEFT,
+        top: bounds.top - TOP,
+        bottom: bounds.bottom - TOP,
+      };
+    };
+
+    const ensureToLeftOf = (ballBox, left) => {
+      ballBox.left = left - BALL_SIZE;
+      ballBox.right = left;
+    };
+    const ensureToRightOf = (ballBox, right) => {
+      ballBox.right = right + BALL_SIZE;
+      ballBox.left = right;
+    };
+    const ensureAbove = (ballBox, top) => {
+      ballBox.top = top - BALL_SIZE;
+      ballBox.bottom = top;
+    };
+    const ensureBelow = (ballBox, bottom) => {
+      ballBox.bottom = bottom + BALL_SIZE;
+      ballBox.top = bottom;
+    };
+
+    function loop() {
       let nextLeft = ballLeft + BASE_SPEED * direction.x;
       let nextTop = ballTop + BASE_SPEED * direction.y;
       let hasCollided = false;
@@ -312,22 +321,34 @@ const main = function () {
       translate(ball, newBall.left, newBall.top);
       ballLeft = newBall.left;
       ballTop = newBall.top;
-    }, TICK_TIME);
+    }
 
-    setTimeout(() => {
-      console.log("STOPPING");
-      clearInterval(interval);
-      clearInterval(paddleInterval);
-    }, STOP_AFTER_THIS_MANY_TICKS * TICK_TIME);
-  };
+    return wrappedIntervalLoop(loop, "GAME");
+  }
 
-  setTimeout(() => {
+  let mainInterval;
+  let paddleInterval;
+  function applyInitialTranslations() {
+    translate(ball, ballLeft, ballTop);
+    translate(paddle, paddleLeft, 0);
+  }
+  applyInitialTranslations();
+
+  const stopGame = setTimeout(() => {
+    console.log("STOPPING");
+    clearInterval(mainInterval);
+    clearInterval(paddleInterval);
+  }, STOP_AFTER_THIS_MANY_TICKS * TICK_TIME);
+
+  const setup = setTimeout(() => {
     ball.classList.remove("transparent");
     playArea.classList.remove("transparent");
     paddle.classList.remove("transparent");
   }, 1);
-  setTimeout(() => {
-    mainLoop();
+
+  const startGame = setTimeout(() => {
+    mainInterval = setInterval(mainLoop(), TICK_TIME);
+    paddleInterval = setInterval(paddleLoop(), 1000 / 60);
   }, FADE_IN_TIME + 1);
 };
 
