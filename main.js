@@ -110,46 +110,40 @@ const main = function () {
   let ballTop = HEIGHT - 100;
   const direction = { x: 1, y: 1 };
 
-  const translateBall = (left, top) => {
-    ball.style.transform = `translate(${left}px, ${top}px)`;
-  };
+  function translate(elt, x, y) {
+    elt.style.transform = `translate(${x}px, ${y}px)`;
+  }
 
-  translateBall(ballLeft, ballTop);
+  function paddleLoop() {
+    translate(paddle, paddleLeft, 0);
 
-  setInterval(
-    (function () {
-      const translatePaddle = (left) => {
-        paddle.style.transform = `translateX(${left}px)`;
-      };
-      translatePaddle(paddleLeft);
-
-      const keysPressed = { ArrowLeft: false, ArrowRight: false };
-      document.addEventListener("keydown", (e) => {
-        if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
-          e.preventDefault();
-          keysPressed[e.key] = true;
-        }
-      });
-      document.addEventListener("keyup", (e) => {
-        if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
-          keysPressed[e.key] = false;
-        }
-      });
-
-      function loop() {
-        if (keysPressed.ArrowLeft) {
-          paddleLeft = clamp(0, WIDTH - 100, paddleLeft - 2);
-        }
-        if (keysPressed.ArrowRight) {
-          paddleLeft = clamp(0, WIDTH - 100, paddleLeft + 2);
-        }
-        translatePaddle(paddleLeft);
+    const keysPressed = { ArrowLeft: false, ArrowRight: false };
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+        e.preventDefault();
+        keysPressed[e.key] = true;
       }
+    });
+    document.addEventListener("keyup", (e) => {
+      if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+        keysPressed[e.key] = false;
+      }
+    });
 
-      return loop;
-    })(),
-    1000 / 60
-  );
+    function loop() {
+      if (keysPressed.ArrowLeft) {
+        paddleLeft = clamp(0, WIDTH - 100, paddleLeft - 2);
+      }
+      if (keysPressed.ArrowRight) {
+        paddleLeft = clamp(0, WIDTH - 100, paddleLeft + 2);
+      }
+      translate(paddle, paddleLeft, 0);
+    }
+
+    return loop;
+  }
+
+  const paddleInterval = setInterval(paddleLoop(), 1000 / 60);
 
   const translatedBounds = (obj) => {
     const bounds = obj.getBoundingClientRect();
@@ -214,10 +208,11 @@ const main = function () {
     return { intersects: true, intersectsFrom };
   };
 
+  translate(ball, ballLeft, ballTop);
   const mainLoop = () => {
     const interval = setInterval(() => {
-      const nextLeft = ballLeft + BASE_SPEED * direction.x;
-      const nextTop = ballTop + BASE_SPEED * direction.y;
+      let nextLeft = ballLeft + BASE_SPEED * direction.x;
+      let nextTop = ballTop + BASE_SPEED * direction.y;
       let hasCollided = false;
       const movingLeft = direction.x < 0;
       const movingRight = direction.x > 0;
@@ -314,14 +309,15 @@ const main = function () {
           }
         });
 
-      translateBall(newBall.left, newBall.top);
+      translate(ball, newBall.left, newBall.top);
       ballLeft = newBall.left;
       ballTop = newBall.top;
     }, TICK_TIME);
 
     setTimeout(() => {
-      console.log("clearing interval");
+      console.log("STOPPING");
       clearInterval(interval);
+      clearInterval(paddleInterval);
     }, STOP_AFTER_THIS_MANY_TICKS * TICK_TIME);
   };
 
