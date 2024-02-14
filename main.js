@@ -82,8 +82,8 @@ const main = function () {
 
   const BALL_SIZE = 50;
   const TICK_TIME = 50;
-  const BASE_SPEED = 5;
-  const STOP_AFTER_THIS_MANY_TICKS = 300;
+  const BASE_SPEED = 7.5;
+  const STOP_AFTER_THIS_MANY_TICKS = 600;
   const FADE_IN_TIME = 1000;
 
   const mainElt = document.querySelector("div[role='main']");
