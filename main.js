@@ -1,8 +1,10 @@
 const main = function () {
   const clamp = (min, max, value) => Math.min(Math.max(min, value), max);
   const BALL_SIZE = 50;
-  const TICK_TIME = 50;
+  const TICK_TIME = 100;
   const BASE_SPEED = 10;
+  const STOP_AFTER_THIS_MANY_TICKS = 150;
+  const FADE_IN_TIME = 1000;
 
   const _ball = document.getElementById("_ball");
   const _visual = document.getElementById("_visual");
@@ -54,8 +56,7 @@ const main = function () {
   const LEFT = Math.min(topPlayArea.left, bottomPlayArea.left);
   const TOP = topPlayArea.top;
   const RIGHT = Math.max(topPlayArea.right, bottomPlayArea.right);
-  const BOTTOM =
-    Math.max(bottomPlayArea.bottom, window.innerHeight - 100) - 100;
+  const BOTTOM = Math.max(bottomPlayArea.bottom, window.innerHeight - 25) - 25;
   const WIDTH = RIGHT - LEFT;
   const HEIGHT = BOTTOM - TOP;
   const EVENTS = document
@@ -66,12 +67,15 @@ const main = function () {
   visual.id = "_visual";
 
   visual.style.position = "fixed";
-  visual.style.backgroundColor = "slategrey";
+  visual.style.backgroundColor = "hsl(235deg 15% 67%)";
   visual.style.left = `${LEFT}px`;
   visual.style.top = `${TOP}px`;
   visual.style.width = `${RIGHT - LEFT}px`;
   visual.style.height = `${BOTTOM - TOP}px`;
   visual.style.outline = "2px dashed black";
+  visual.style.transition = `opacity ${FADE_IN_TIME / 1000}s ease`;
+  visual.style.opacity = "0";
+  visual.style.pointerEvents = "none";
 
   document.body.appendChild(visual);
 
@@ -86,8 +90,13 @@ const main = function () {
   ball.style.left = `${LEFT}px`;
   ball.style.top = `${TOP}px`;
   ball.style.willChange = "transform";
-  ball.style.transition = `transform ${TICK_TIME / 1000}s linear`;
+  ball.style.transition = `transform ${TICK_TIME / 1000}s linear, opacity ${
+    FADE_IN_TIME / 1000
+  }s ease`;
   ball.style.zIndex = "1000";
+  ball.style.opacity = "0";
+
+  document.body.appendChild(ball);
 
   let ballLeft = WIDTH / 2;
   let ballTop = HEIGHT - 100;
@@ -135,103 +144,146 @@ const main = function () {
     ballBox.bottom = bottom + BALL_SIZE;
     ballBox.top = bottom;
   };
+  const intersectsFromLeft = (ball, bounds) => {
+    return ball.right >= bounds.left && ball.left <= bounds.left;
+  };
 
-  const interval = setInterval(() => {
-    const nextLeft = ballLeft + BASE_SPEED * direction.x;
-    const nextTop = ballTop + BASE_SPEED * direction.y;
-    let hasCollided = false;
+  const intersectsFromRight = (ball, bounds) => {
+    return ball.left <= bounds.right && ball.right >= bounds.right;
+  };
 
-    if (nextLeft < 0) {
-      direction.x *= -1;
-      nextLeft = 0;
-      hasCollided = true;
-    } else if (nextLeft + BALL_SIZE > WIDTH) {
-      direction.x *= -1;
-      hasCollided = true;
-      // nextLeft = WIDTH - BALL_SIZE;
-    }
-    if (nextTop < 0) {
-      direction.y *= -1;
-      nextTop = 0;
-      hasCollided = true;
-    } else if (nextTop > HEIGHT - BALL_SIZE) {
-      direction.y *= -1;
-      hasCollided = true;
-      // nextTop = HEIGHT - BALL_SIZE;
-    }
+  const intersectsFromAbove = (ball, bounds) => {
+    return ball.bottom >= bounds.top && ball.top <= bounds.top;
+  };
 
-    const curBox = {
-      left: ballLeft,
-      right: ballLeft + BALL_SIZE,
-      top: ballTop,
-      bottom: ballTop + BALL_SIZE,
-    };
-    const nextBox = {
-      left: nextLeft,
-      right: nextLeft + BALL_SIZE,
-      top: nextTop,
-      bottom: nextTop + BALL_SIZE,
-    };
+  const intersectsFromBelow = (ball, bounds) => {
+    return ball.top <= bounds.bottom && ball.bottom >= bounds.bottom;
+  };
 
-    EVENTS.forEach((event) => {
-      const eventBounds = translatedBounds(event);
-      const intersections = getIntersections(nextBox, eventBounds);
-      if (intersections.intersects && !event.dataset.intersected) {
-        event.style.backgroundColor = "slategrey";
-        event.style.transition =
-          "opacity 0.5s ease, background-color 0.5s ease";
-        event.style.opacity = "0.3";
-        event.dataset.intersected = "true";
-        // I think we might want to handle X and Y separately here? unsure.
-        if (hasCollided) {
-          return;
-        }
+  const mainLoop = () => {
+    const interval = setInterval(() => {
+      const nextLeft = ballLeft + BASE_SPEED * direction.x;
+      const nextTop = ballTop + BASE_SPEED * direction.y;
+      let hasCollided = false;
+      const movingLeft = direction.x < 0;
+      const movingRight = direction.x > 0;
+      const movingUp = direction.y < 0;
+      const movingDown = direction.y > 0;
+
+      if (nextLeft < 0) {
+        direction.x *= -1;
+        nextLeft = 0;
         hasCollided = true;
-        if (
-          direction.x > 0 &&
-          nextBox.right > eventBounds.left &&
-          nextBox.left < eventBounds.left
-        ) {
-          direction.x *= -1;
-          ensureToLeftOf(nextBox, eventBounds.left);
-        } else if (
-          direction.x < 0 &&
-          nextBox.left < eventBounds.right &&
-          nextBox.right > eventBounds.right
-        ) {
-          direction.x *= -1;
-          ensureToRightOf(nextBox, eventBounds.right);
-        }
-
-        if (
-          direction.y > 0 &&
-          nextBox.bottom > eventBounds.top &&
-          nextBox.top < eventBounds.top
-        ) {
-          direction.y *= -1;
-          ensureAbove(nextBox, eventBounds.top);
-        } else if (
-          direction.y < 0 &&
-          nextBox.top < eventBounds.bottom &&
-          nextBox.bottom > eventBounds.bottom
-        ) {
-          direction.y *= -1;
-          ensureBelow(nextBox, eventBounds.bottom);
-        }
+      } else if (nextLeft + BALL_SIZE > WIDTH) {
+        direction.x *= -1;
+        hasCollided = true;
+        // nextLeft = WIDTH - BALL_SIZE;
       }
-    });
+      if (nextTop < 0) {
+        direction.y *= -1;
+        nextTop = 0;
+        hasCollided = true;
+      } else if (nextTop > HEIGHT - BALL_SIZE) {
+        direction.y *= -1;
+        hasCollided = true;
+        // nextTop = HEIGHT - BALL_SIZE;
+      }
 
-    translateBall(nextBox.left, nextBox.top);
-    ballLeft = nextBox.left;
-    ballTop = nextBox.top;
-  }, TICK_TIME);
+      const curBox = {
+        left: ballLeft,
+        right: ballLeft + BALL_SIZE,
+        top: ballTop,
+        bottom: ballTop + BALL_SIZE,
+      };
+      const nextBox = {
+        left: nextLeft,
+        right: nextLeft + BALL_SIZE,
+        top: nextTop,
+        bottom: nextTop + BALL_SIZE,
+      };
+
+      EVENTS.forEach((event) => {
+        const eventBounds = translatedBounds(event);
+        const intersections = getIntersections(nextBox, eventBounds);
+        if (intersections.intersects && !event.dataset.intersected) {
+          console.log(`INTERSECTION DETECTED: ${event.textContent}`);
+          event.style.transition =
+            "opacity 0.5s ease, background-color 0.5s ease";
+          event.style.opacity = "0.3";
+          event.dataset.intersected = "true";
+          // I think we might want to handle X and Y separately here? unsure.
+          if (hasCollided) {
+            console.log("SKIPPING A COLLISION");
+            return;
+          }
+          console.log(`NEXT BOX: ${JSON.stringify(nextBox)}`);
+          console.log(`EVENT BOUNDS: ${JSON.stringify(eventBounds)}`);
+          console.log(`INTERSECTIONS: ${JSON.stringify(intersections)}`);
+          console.log("--------------");
+
+          if (
+            movingRight &&
+            intersectsFromLeft(nextBox, eventBounds) &&
+            !intersectsFromLeft(curBox, eventBounds)
+          ) {
+            direction.x *= -1;
+            ensureToLeftOf(nextBox, eventBounds.left);
+            hasCollided = true;
+          } else if (
+            movingLeft &&
+            intersectsFromRight(nextBox, eventBounds) &&
+            !intersectsFromRight(curBox, eventBounds)
+          ) {
+            direction.x *= -1;
+            ensureToRightOf(nextBox, eventBounds.right);
+            hasCollided = true;
+          }
+
+          if (
+            movingDown &&
+            intersectsFromAbove(nextBox, eventBounds) &&
+            !intersectsFromAbove(curBox, eventBounds)
+          ) {
+            direction.y *= -1;
+            ensureAbove(nextBox, eventBounds.top);
+            hasCollided = true;
+          } else if (
+            movingUp &&
+            intersectsFromBelow(nextBox, eventBounds) &&
+            !intersectsFromBelow(curBox, eventBounds)
+          ) {
+            direction.y *= -1;
+            ensureBelow(nextBox, eventBounds.bottom);
+            hasCollided = true;
+          }
+
+          if (!hasCollided) {
+            console.warn(`NO COLLISION DETECTED for ${event.textContent}`);
+            direction.x *= -1;
+            direction.y *= -1;
+            hasCollided = true;
+          }
+        }
+      });
+
+      translateBall(nextBox.left, nextBox.top);
+      ballLeft = nextBox.left;
+      ballTop = nextBox.top;
+    }, TICK_TIME);
+
+    setTimeout(() => {
+      console.log("clearing interval");
+      clearInterval(interval);
+    }, STOP_AFTER_THIS_MANY_TICKS * TICK_TIME);
+  };
 
   setTimeout(() => {
-    console.log("clearing interval");
-    clearInterval(interval);
-  }, 7500);
-
-  document.body.appendChild(ball);
+    ball.style.opacity = "1";
+    visual.style.opacity = "1";
+  }, 1);
+  setTimeout(() => {
+    mainLoop();
+  }, FADE_IN_TIME + 1);
 };
 
 function resetEvents() {
@@ -239,7 +291,6 @@ function resetEvents() {
     .querySelector("div[role='main']")
     .querySelectorAll("div[role='button']");
   EVENTS.forEach((event) => {
-    event.style.backgroundColor = "white";
     event.style.opacity = "1";
     event.dataset.intersected = "";
   });
