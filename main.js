@@ -6,32 +6,13 @@ const main = function () {
   const STOP_AFTER_THIS_MANY_TICKS = 150;
   const FADE_IN_TIME = 1000;
 
-  const _ball = document.getElementById("_ball");
-  const _visual = document.getElementById("_visual");
+  const _ball = document.getElementById("_ball")?.remove();
+  const _visual = document.getElementById("_visual")?.remove();
+  const _paddle = document.getElementById("_paddle")?.remove();
+
   const maybeNegate = () => (Math.random() > 0.5 ? 1 : -1);
   const randomMaybeNegative = (max) =>
     Math.floor(Math.random() * max * maybeNegate());
-  if (_ball) {
-    // delete ball
-    _ball.remove();
-  }
-  if (_visual) {
-    // delete visual
-    _visual.remove();
-  }
-
-  function betweenTopAndBottom(ballRect, eltRect) {
-    const above = ballRect.bottom < eltRect.top;
-    const below = ballRect.top > eltRect.bottom;
-    return !above && !below;
-  }
-
-  function betweenLeftAndRight(ballRect, eltRect) {
-    const left = ballRect.right < eltRect.left;
-    const right = ballRect.left > eltRect.right;
-
-    return !left && !right;
-  }
 
   function elementsIntersect(ballLeft, ballTop, element) {
     const eltRect = element.getBoundingClientRect();
