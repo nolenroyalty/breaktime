@@ -1,5 +1,10 @@
-const main = function () {
-  const css = `
+const getEvents = () => {
+  return document
+    .querySelector("div[role='main']")
+    .querySelectorAll("div[role='button']");
+};
+
+const css = `
 :root {
   --color-black: black;
   --color-playarea: hsl(235deg 15% 67%);
@@ -49,7 +54,9 @@ const main = function () {
   opacity: 0.3;
   transition: opacity 0.5s ease, background-color 0.5s ease;
 }
-  `;
+`;
+
+const main = function () {
   const style = document.createElement("style");
   style.appendChild(document.createTextNode(css));
   document.head.appendChild(style);
@@ -219,6 +226,13 @@ const main = function () {
       ballBox.top = bottom;
     };
 
+    const makeBallBox = (left, top) => ({
+      left,
+      right: left + BALL_SIZE,
+      top,
+      bottom: top + BALL_SIZE,
+    });
+
     function loop() {
       let nextLeft = ballLeft + BASE_SPEED * direction.x;
       let nextTop = ballTop + BASE_SPEED * direction.y;
@@ -247,76 +261,68 @@ const main = function () {
         // nextTop = HEIGHT - BALL_SIZE;
       }
 
-      const oldBall = {
-        left: ballLeft,
-        right: ballLeft + BALL_SIZE,
-        top: ballTop,
-        bottom: ballTop + BALL_SIZE,
-      };
-      const newBall = {
-        left: nextLeft,
-        right: nextLeft + BALL_SIZE,
-        top: nextTop,
-        bottom: nextTop + BALL_SIZE,
-      };
+      const oldBall = makeBallBox(ballLeft, ballTop);
+      const newBall = makeBallBox(nextLeft, nextTop);
 
-      document
-        .querySelector("div[role='main']")
-        .querySelectorAll("div[role='button']")
-        .forEach((event) => {
-          if (event.dataset.intersected) {
+      function collideWithEvent(event) {
+        event.classList.add("faded");
+        event.dataset.intersected = "true";
+      }
+
+      getEvents().forEach((event) => {
+        if (event.dataset.intersected) {
+          return;
+        }
+
+        const eventBounds = translatedBounds(event);
+        const { intersects, intersectsFrom } = getIntersectionState({
+          oldBall,
+          newBall,
+          elt: eventBounds,
+        });
+
+        if (intersects) {
+          console.log(`INTERSECTION DETECTED: ${event.textContent}`);
+          collideWithEvent(event);
+
+          // I think we might want to handle X and Y separately here? unsure.
+          if (hasCollided) {
+            console.log("SKIPPING A COLLISION");
             return;
           }
+          console.log(`NEXT BOX: ${JSON.stringify(newBall)}`);
+          console.log(`EVENT BOUNDS: ${JSON.stringify(eventBounds)}`);
+          console.log(`INTERSECTIONS: ${JSON.stringify(intersectsFrom)}`);
+          console.log("--------------");
 
-          const eventBounds = translatedBounds(event);
-          const { intersects, intersectsFrom } = getIntersectionState({
-            oldBall,
-            newBall,
-            elt: eventBounds,
-          });
-
-          if (intersects) {
-            console.log(`INTERSECTION DETECTED: ${event.textContent}`);
-            event.classList.add("faded");
-            event.dataset.intersected = "true";
-            // I think we might want to handle X and Y separately here? unsure.
-            if (hasCollided) {
-              console.log("SKIPPING A COLLISION");
-              return;
-            }
-            console.log(`NEXT BOX: ${JSON.stringify(newBall)}`);
-            console.log(`EVENT BOUNDS: ${JSON.stringify(eventBounds)}`);
-            console.log(`INTERSECTIONS: ${JSON.stringify(intersectsFrom)}`);
-            console.log("--------------");
-
-            if (movingRight && intersectsFrom.left) {
-              direction.x *= -1;
-              ensureToLeftOf(newBall, eventBounds.left);
-              hasCollided = true;
-            } else if (movingLeft && intersectsFrom.right) {
-              direction.x *= -1;
-              ensureToRightOf(newBall, eventBounds.right);
-              hasCollided = true;
-            }
-
-            if (movingDown && intersectsFrom.above) {
-              direction.y *= -1;
-              ensureAbove(newBall, eventBounds.top);
-              hasCollided = true;
-            } else if (movingUp && intersectsFrom.below) {
-              direction.y *= -1;
-              ensureBelow(newBall, eventBounds.bottom);
-              hasCollided = true;
-            }
-
-            if (!hasCollided) {
-              console.warn(`NO COLLISION DETECTED for ${event.textContent}`);
-              direction.x *= -1;
-              direction.y *= -1;
-              hasCollided = true;
-            }
+          if (movingRight && intersectsFrom.left) {
+            direction.x *= -1;
+            ensureToLeftOf(newBall, eventBounds.left);
+            hasCollided = true;
+          } else if (movingLeft && intersectsFrom.right) {
+            direction.x *= -1;
+            ensureToRightOf(newBall, eventBounds.right);
+            hasCollided = true;
           }
-        });
+
+          if (movingDown && intersectsFrom.above) {
+            direction.y *= -1;
+            ensureAbove(newBall, eventBounds.top);
+            hasCollided = true;
+          } else if (movingUp && intersectsFrom.below) {
+            direction.y *= -1;
+            ensureBelow(newBall, eventBounds.bottom);
+            hasCollided = true;
+          }
+
+          if (!hasCollided) {
+            console.warn(`NO COLLISION DETECTED for ${event.textContent}`);
+            direction.x *= -1;
+            direction.y *= -1;
+            hasCollided = true;
+          }
+        }
+      });
 
       translate(ball, newBall.left, newBall.top);
       ballLeft = newBall.left;
@@ -353,10 +359,7 @@ const main = function () {
 };
 
 function resetEvents() {
-  const EVENTS = document
-    .querySelector("div[role='main']")
-    .querySelectorAll("div[role='button']");
-  EVENTS.forEach((event) => {
+  getEvents().forEach((event) => {
     event.classList.remove("faded");
     event.dataset.intersected = "";
   });
