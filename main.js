@@ -35,18 +35,24 @@ const css = `
   z-index: 1001;
 }
 
-.ball::after {
+/* .ball::after {
   content: "";
   position: absolute;
   left: 0;
   top: 0;
   right: 0;
   bottom: 0;
-  width: 20px;
-  height: 20px;
-  background-color: green;
-  transform: translate(0, 15px);
-}
+  width: 100px;
+  height: 50px;
+  z-index: -1;
+  transform: rotate(180deg) translateX(65px);
+  clip-path: polygon(0% 10%, 100% 30%, 100% 70%, 0% 90%);
+  background: linear-gradient(270deg, rgba(123,183,217,0) 0%,
+                                     rgba(167,204,224,0.72) 50%, 
+                                     rgba(225,237,244,0.2) 65%,
+                                     rgba(225,237,244,0) 80%
+                                     );
+} */
 
 .paddle {
   position: fixed;
