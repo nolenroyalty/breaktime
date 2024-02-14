@@ -1,32 +1,64 @@
 const main = function () {
-  const clamp = (min, max, value) => Math.min(Math.max(min, value), max);
+  const css = `
+:root {
+  --color-black: black;
+  --color-playarea: hsl(235deg 15% 67%);
+}
+
+.play-area {
+  position: fixed;
+  top: calc(var(--top) * 1px);
+  left: calc(var(--left) * 1px);
+  width: calc(var(--width) * 1px);
+  height: calc(var(--height) * 1px);
+  background-color: var(--color-playarea);
+  outline: 2px dashed black;
+  pointer-events: none;
+  transition: opacity 1s ease;
+}
+
+.ball {
+  position: fixed;
+  left: calc(var(--left)* 1px);
+  top: calc(var(--top)* 1px);
+  width: calc(var(--size)* 1px);
+  height: calc(var(--size)* 1px);
+  background-color: var(--color-black);
+  border-radius: 50%;
+  will-change: transform;
+  transition: transform 0.1s linear, opacity 1s ease;
+  z-index: 1001;
+}
+
+.paddle {
+  position: fixed;
+  left: calc(var(--left)* 1px);
+  top: calc(var(--top)* 1px);
+  width: calc(var(--width)* 1px);
+  height: calc(var(--height)* 1px);
+  background-color: var(--color-black);
+  z-index: 1002;
+  transition: transform 0.05s linear, opacity 1s ease;
+}
+
+.transparent {
+  opacity: 0;
+}
+
+.faded {
+  opacity: 0.3;
+  transition: opacity 0.5s ease, background-color 0.5s ease;
+}
+  `;
+  const style = document.createElement("style");
+  style.appendChild(document.createTextNode(css));
+  document.head.appendChild(style);
+
   const BALL_SIZE = 50;
   const TICK_TIME = 100;
   const BASE_SPEED = 10;
   const STOP_AFTER_THIS_MANY_TICKS = 150;
   const FADE_IN_TIME = 1000;
-
-  const _ball = document.getElementById("_ball")?.remove();
-  const _visual = document.getElementById("_visual")?.remove();
-  const _paddle = document.getElementById("_paddle")?.remove();
-
-  const maybeNegate = () => (Math.random() > 0.5 ? 1 : -1);
-  const randomMaybeNegative = (max) =>
-    Math.floor(Math.random() * max * maybeNegate());
-
-  function elementsIntersect(ballLeft, ballTop, element) {
-    const eltRect = element.getBoundingClientRect();
-    const ballRight = ballLeft + BALL_SIZE;
-    const ballBottom = ballTop + BALL_SIZE;
-
-    const doNotIntersect =
-      ballRight < eltRect.left || // ballRect is left of eltRect
-      ballLeft > eltRect.right || // ballRect is right of eltRect
-      ballBottom < eltRect.top || // ballRect is above eltRect
-      ballTop > eltRect.bottom; // ballRect is below eltRect
-
-    return { intersects: !doNotIntersect, eltRect };
-  }
 
   const mainElt = document.querySelector("div[role='main']");
   const grid = mainElt.querySelector("div[role='grid']");
@@ -40,45 +72,40 @@ const main = function () {
   const BOTTOM = Math.max(bottomPlayArea.bottom, window.innerHeight - 25) - 25;
   const WIDTH = RIGHT - LEFT;
   const HEIGHT = BOTTOM - TOP;
-  const EVENTS = document
-    .querySelector("div[role='main']")
-    .querySelectorAll("div[role='button']");
 
-  var visual = document.createElement("div");
-  visual.id = "_visual";
+  const clamp = (min, max, value) => Math.min(Math.max(min, value), max);
 
-  visual.style.position = "fixed";
-  visual.style.backgroundColor = "hsl(235deg 15% 67%)";
-  visual.style.left = `${LEFT}px`;
-  visual.style.top = `${TOP}px`;
-  visual.style.width = `${RIGHT - LEFT}px`;
-  visual.style.height = `${BOTTOM - TOP}px`;
-  visual.style.outline = "2px dashed black";
-  visual.style.transition = `opacity ${FADE_IN_TIME / 1000}s ease`;
-  visual.style.opacity = "0";
-  visual.style.pointerEvents = "none";
+  function createElt(id, style = {}, classList = []) {
+    document.querySelector(`#${id}`)?.remove();
+    const elt = document.createElement("div");
+    elt.id = id;
+    elt.classList.add(...classList);
+    Object.keys(style).forEach((key) => {
+      elt.style.setProperty(key, style[key]);
+    });
+    document.body.appendChild(elt);
+    return elt;
+  }
 
-  document.body.appendChild(visual);
+  const visual = createElt(
+    "_visual",
+    { "--top": TOP, "--left": LEFT, "--width": WIDTH, "--height": HEIGHT },
+    ["play-area", "transparent"]
+  );
 
-  var ball = document.createElement("div");
-  ball.id = "_ball";
+  const ball = createElt(
+    "_ball",
+    { "--top": TOP, "--left": LEFT, "--size": BALL_SIZE },
+    ["ball", "transparent"]
+  );
 
-  ball.style.position = "fixed";
-  ball.style.width = `${BALL_SIZE}px`;
-  ball.style.height = `${BALL_SIZE}px`;
-  ball.style.backgroundColor = "black";
-  ball.style.borderRadius = "50%";
-  ball.style.left = `${LEFT}px`;
-  ball.style.top = `${TOP}px`;
-  ball.style.willChange = "transform";
-  ball.style.transition = `transform ${TICK_TIME / 1000}s linear, opacity ${
-    FADE_IN_TIME / 1000
-  }s ease`;
-  ball.style.zIndex = "1000";
-  ball.style.opacity = "0";
+  const paddle = createElt(
+    "_paddle",
+    { "--top": BOTTOM - 22, "--left": LEFT, "--width": 100, "--height": 20 },
+    ["paddle", "transparent"]
+  );
 
-  document.body.appendChild(ball);
-
+  let paddleLeft = WIDTH / 2 - 50;
   let ballLeft = WIDTH / 2;
   let ballTop = HEIGHT - 100;
   const direction = { x: 1, y: 1 };
@@ -88,6 +115,40 @@ const main = function () {
   };
 
   translateBall(ballLeft, ballTop);
+
+  setInterval(
+    (function () {
+      const translatePaddle = (left) => {
+        paddle.style.transform = `translateX(${left}px)`;
+      };
+      translatePaddle(paddleLeft);
+
+      const keysPressed = { ArrowLeft: false, ArrowRight: false };
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+          keysPressed[e.key] = true;
+        }
+      });
+      document.addEventListener("keyup", (e) => {
+        if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+          keysPressed[e.key] = false;
+        }
+      });
+
+      function loop() {
+        if (keysPressed.ArrowLeft) {
+          paddleLeft = clamp(0, WIDTH - 100, paddleLeft - 2);
+        }
+        if (keysPressed.ArrowRight) {
+          paddleLeft = clamp(0, WIDTH - 100, paddleLeft + 2);
+        }
+        translatePaddle(paddleLeft);
+      }
+
+      return loop;
+    })(),
+    1000 / 60
+  );
 
   const translatedBounds = (obj) => {
     const bounds = obj.getBoundingClientRect();
@@ -183,69 +244,72 @@ const main = function () {
         bottom: nextTop + BALL_SIZE,
       };
 
-      EVENTS.forEach((event) => {
-        const eventBounds = translatedBounds(event);
-        const intersections = getIntersections(nextBox, eventBounds);
-        if (intersections.intersects && !event.dataset.intersected) {
-          console.log(`INTERSECTION DETECTED: ${event.textContent}`);
-          event.style.transition =
-            "opacity 0.5s ease, background-color 0.5s ease";
-          event.style.opacity = "0.3";
-          event.dataset.intersected = "true";
-          // I think we might want to handle X and Y separately here? unsure.
-          if (hasCollided) {
-            console.log("SKIPPING A COLLISION");
-            return;
-          }
-          console.log(`NEXT BOX: ${JSON.stringify(nextBox)}`);
-          console.log(`EVENT BOUNDS: ${JSON.stringify(eventBounds)}`);
-          console.log(`INTERSECTIONS: ${JSON.stringify(intersections)}`);
-          console.log("--------------");
+      document
+        .querySelector("div[role='main']")
+        .querySelectorAll("div[role='button']")
+        .forEach((event) => {
+          const eventBounds = translatedBounds(event);
+          const intersections = getIntersections(nextBox, eventBounds);
+          if (intersections.intersects && !event.dataset.intersected) {
+            console.log(`INTERSECTION DETECTED: ${event.textContent}`);
+            event.style.transition =
+              "opacity 0.5s ease, background-color 0.5s ease";
+            event.style.opacity = "0.3";
+            event.dataset.intersected = "true";
+            // I think we might want to handle X and Y separately here? unsure.
+            if (hasCollided) {
+              console.log("SKIPPING A COLLISION");
+              return;
+            }
+            console.log(`NEXT BOX: ${JSON.stringify(nextBox)}`);
+            console.log(`EVENT BOUNDS: ${JSON.stringify(eventBounds)}`);
+            console.log(`INTERSECTIONS: ${JSON.stringify(intersections)}`);
+            console.log("--------------");
 
-          if (
-            movingRight &&
-            intersectsFromLeft(nextBox, eventBounds) &&
-            !intersectsFromLeft(curBox, eventBounds)
-          ) {
-            direction.x *= -1;
-            ensureToLeftOf(nextBox, eventBounds.left);
-            hasCollided = true;
-          } else if (
-            movingLeft &&
-            intersectsFromRight(nextBox, eventBounds) &&
-            !intersectsFromRight(curBox, eventBounds)
-          ) {
-            direction.x *= -1;
-            ensureToRightOf(nextBox, eventBounds.right);
-            hasCollided = true;
-          }
+            if (
+              movingRight &&
+              intersectsFromLeft(nextBox, eventBounds) &&
+              !intersectsFromLeft(curBox, eventBounds)
+            ) {
+              direction.x *= -1;
+              ensureToLeftOf(nextBox, eventBounds.left);
+              hasCollided = true;
+            } else if (
+              movingLeft &&
+              intersectsFromRight(nextBox, eventBounds) &&
+              !intersectsFromRight(curBox, eventBounds)
+            ) {
+              direction.x *= -1;
+              ensureToRightOf(nextBox, eventBounds.right);
+              hasCollided = true;
+            }
 
-          if (
-            movingDown &&
-            intersectsFromAbove(nextBox, eventBounds) &&
-            !intersectsFromAbove(curBox, eventBounds)
-          ) {
-            direction.y *= -1;
-            ensureAbove(nextBox, eventBounds.top);
-            hasCollided = true;
-          } else if (
-            movingUp &&
-            intersectsFromBelow(nextBox, eventBounds) &&
-            !intersectsFromBelow(curBox, eventBounds)
-          ) {
-            direction.y *= -1;
-            ensureBelow(nextBox, eventBounds.bottom);
-            hasCollided = true;
-          }
+            if (
+              movingDown &&
+              intersectsFromAbove(nextBox, eventBounds) &&
+              !intersectsFromAbove(curBox, eventBounds)
+            ) {
+              direction.y *= -1;
+              ensureAbove(nextBox, eventBounds.top);
+              hasCollided = true;
+            } else if (
+              movingUp &&
+              intersectsFromBelow(nextBox, eventBounds) &&
+              !intersectsFromBelow(curBox, eventBounds)
+            ) {
+              direction.y *= -1;
+              ensureBelow(nextBox, eventBounds.bottom);
+              hasCollided = true;
+            }
 
-          if (!hasCollided) {
-            console.warn(`NO COLLISION DETECTED for ${event.textContent}`);
-            direction.x *= -1;
-            direction.y *= -1;
-            hasCollided = true;
+            if (!hasCollided) {
+              console.warn(`NO COLLISION DETECTED for ${event.textContent}`);
+              direction.x *= -1;
+              direction.y *= -1;
+              hasCollided = true;
+            }
           }
-        }
-      });
+        });
 
       translateBall(nextBox.left, nextBox.top);
       ballLeft = nextBox.left;
@@ -259,8 +323,9 @@ const main = function () {
   };
 
   setTimeout(() => {
-    ball.style.opacity = "1";
-    visual.style.opacity = "1";
+    ball.classList.remove("transparent");
+    visual.classList.remove("transparent");
+    paddle.classList.remove("transparent");
   }, 1);
   setTimeout(() => {
     mainLoop();

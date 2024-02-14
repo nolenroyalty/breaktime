@@ -1,3 +1,21 @@
+function elementsIntersect(ballLeft, ballTop, element) {
+  const eltRect = element.getBoundingClientRect();
+  const ballRight = ballLeft + BALL_SIZE;
+  const ballBottom = ballTop + BALL_SIZE;
+
+  const doNotIntersect =
+    ballRight < eltRect.left || // ballRect is left of eltRect
+    ballLeft > eltRect.right || // ballRect is right of eltRect
+    ballBottom < eltRect.top || // ballRect is above eltRect
+    ballTop > eltRect.bottom; // ballRect is below eltRect
+
+  return { intersects: !doNotIntersect, eltRect };
+}
+
+const maybeNegate = () => (Math.random() > 0.5 ? 1 : -1);
+const randomMaybeNegative = (max) =>
+  Math.floor(Math.random() * max * maybeNegate());
+
 // const interval = setInterval(() => {
 //   const oldBallRect = ball.getBoundingClientRect();
 //   let nextLeft = ballLeft + SPEED * direction.x;
