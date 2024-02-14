@@ -126,6 +126,7 @@ const main = function () {
       const keysPressed = { ArrowLeft: false, ArrowRight: false };
       document.addEventListener("keydown", (e) => {
         if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+          e.preventDefault();
           keysPressed[e.key] = true;
         }
       });
@@ -272,9 +273,7 @@ const main = function () {
 
           if (intersects) {
             console.log(`INTERSECTION DETECTED: ${event.textContent}`);
-            event.style.transition =
-              "opacity 0.5s ease, background-color 0.5s ease";
-            event.style.opacity = "0.3";
+            event.classList.add("faded");
             event.dataset.intersected = "true";
             // I think we might want to handle X and Y separately here? unsure.
             if (hasCollided) {
@@ -341,7 +340,7 @@ function resetEvents() {
     .querySelector("div[role='main']")
     .querySelectorAll("div[role='button']");
   EVENTS.forEach((event) => {
-    event.style.opacity = "1";
+    event.classList.remove("faded");
     event.dataset.intersected = "";
   });
 }
