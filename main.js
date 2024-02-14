@@ -98,8 +98,11 @@ const main = function () {
   const BOTTOM = Math.max(bottomPlayArea.bottom, window.innerHeight - 25) - 25;
   const WIDTH = RIGHT - LEFT;
   const HEIGHT = BOTTOM - TOP;
+  const PADDLE_WIDTH = 100;
+  const PADDLE_HEIGHT = 20;
   // It's gross but these need to be global :/
   let paddleLeft = WIDTH / 2 - 50;
+  const paddleTop = HEIGHT - 22;
   let ballLeft = WIDTH / 2;
   let ballTop = HEIGHT - 100;
 
@@ -129,7 +132,12 @@ const main = function () {
 
   const paddle = createElt(
     "_paddle",
-    { "--top": BOTTOM - 22, "--left": LEFT, "--width": 100, "--height": 20 },
+    {
+      "--top": TOP,
+      "--left": LEFT,
+      "--width": PADDLE_WIDTH,
+      "--height": PADDLE_HEIGHT,
+    },
     ["paddle", "transparent"]
   );
 
@@ -239,15 +247,15 @@ const main = function () {
     function loop() {
       let shouldTranslate = false;
       if (keysPressed.ArrowLeft) {
-        paddleLeft = clamp(0, WIDTH - 100, paddleLeft - 2);
+        paddleLeft = clamp(0, WIDTH - PADDLE_WIDTH, paddleLeft - 2);
         shouldTranslate = true;
       }
       if (keysPressed.ArrowRight) {
-        paddleLeft = clamp(0, WIDTH - 100, paddleLeft + 2);
+        paddleLeft = clamp(0, WIDTH - PADDLE_WIDTH, paddleLeft + 2);
         shouldTranslate = true;
       }
       if (shouldTranslate) {
-        translate(paddle, paddleLeft, 0);
+        translate(paddle, paddleLeft, paddleTop);
       }
     }
 
@@ -284,12 +292,16 @@ const main = function () {
       ballBox.top = bottom;
     };
 
-    const makeBallBox = (left, top) => ({
+    const makeBox = (left, top, width, height) => ({
       left,
-      right: left + BALL_SIZE,
+      right: left + width,
       top,
-      bottom: top + BALL_SIZE,
+      bottom: top + height,
     });
+
+    const makeBallBox = (left, top) => makeBox(left, top, BALL_SIZE, BALL_SIZE);
+    const makePaddleBox = (left, top) =>
+      makeBox(left, top, PADDLE_WIDTH, PADDLE_HEIGHT);
 
     function loop() {
       const tickId = Math.floor(Math.random() * 1000000);
@@ -327,6 +339,23 @@ const main = function () {
       function collideWithEvent(event) {
         event.classList.add("faded");
         event.dataset.intersected = "true";
+      }
+
+      const paddleBox = makePaddleBox(paddleLeft, paddleTop);
+      const {
+        intersects: intersectsPaddle,
+        intersectsFrom: intersectsPaddleFrom,
+      } = getIntersectionState({
+        oldBall,
+        newBall,
+        elt: paddleBox,
+      });
+
+      if (intersectsPaddle) {
+        console.log(`[${tickId}] PADDLE INTERSECTION DETECTED`);
+        direction.y *= -1;
+        hasCollidedY = true;
+        hasCollidedX = true;
       }
 
       getEvents().forEach((event) => {
@@ -429,7 +458,7 @@ const main = function () {
   let paddleInterval;
   function applyInitialTranslations() {
     translate(ball, ballLeft, ballTop);
-    translate(paddle, paddleLeft, 0);
+    translate(paddle, paddleLeft, paddleTop);
   }
   applyInitialTranslations();
 
