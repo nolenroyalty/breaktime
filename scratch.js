@@ -12,6 +12,15 @@ function elementsIntersect(ballLeft, ballTop, element) {
   return { intersects: !doNotIntersect, eltRect };
 }
 
+const getIntersections = (elt1, elt2) => {
+  const above = elt1.bottom < elt2.top;
+  const below = elt1.top > elt2.bottom;
+  const left = elt1.right < elt2.left;
+  const right = elt1.left > elt2.right;
+  const intersects = !(above || below || left || right);
+  return { intersects, above, below, left, right };
+};
+
 const maybeNegate = () => (Math.random() > 0.5 ? 1 : -1);
 const randomMaybeNegative = (max) =>
   Math.floor(Math.random() * max * maybeNegate());

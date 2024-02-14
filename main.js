@@ -160,16 +160,6 @@ const main = function () {
     };
   };
 
-  const getIntersections = (elt1, elt2) => {
-    const above = elt1.bottom < elt2.top;
-    const below = elt1.top > elt2.bottom;
-    const left = elt1.right < elt2.left;
-    const right = elt1.left > elt2.right;
-    const intersects = !(above || below || left || right);
-    return { intersects, above, below, left, right };
-  };
-
-  const intersectionOrientation = (oldBallRect, newBallRect, eltRect) => {};
   const ensureToLeftOf = (ballBox, left) => {
     ballBox.left = left - BALL_SIZE;
     ballBox.right = left;
@@ -186,20 +176,41 @@ const main = function () {
     ballBox.bottom = bottom + BALL_SIZE;
     ballBox.top = bottom;
   };
-  const intersectsFromLeft = (ball, bounds) => {
-    return ball.right >= bounds.left && ball.left <= bounds.left;
-  };
 
-  const intersectsFromRight = (ball, bounds) => {
-    return ball.left <= bounds.right && ball.right >= bounds.right;
-  };
+  const intersectsFromLeft = (ball, bounds) =>
+    ball.right >= bounds.left && ball.left <= bounds.left;
 
-  const intersectsFromAbove = (ball, bounds) => {
-    return ball.bottom >= bounds.top && ball.top <= bounds.top;
-  };
+  const intersectsFromRight = (ball, bounds) =>
+    ball.left <= bounds.right && ball.right >= bounds.right;
 
-  const intersectsFromBelow = (ball, bounds) => {
-    return ball.top <= bounds.bottom && ball.bottom >= bounds.bottom;
+  const intersectsFromAbove = (ball, bounds) =>
+    ball.bottom >= bounds.top && ball.top <= bounds.top;
+
+  const intersectsFromBelow = (ball, bounds) =>
+    ball.top <= bounds.bottom && ball.bottom >= bounds.bottom;
+
+  const getIntersectionState = ({ oldBall, newBall, elt }) => {
+    const doesNotIntersect =
+      newBall.bottom < elt.top ||
+      newBall.top > elt.bottom ||
+      newBall.right < elt.left ||
+      newBall.left > elt.right;
+
+    if (doesNotIntersect) {
+      return { intersects: false };
+    }
+
+    const justIntersected = (checkIntersect) => {
+      return checkIntersect(newBall, elt) && !checkIntersect(oldBall, elt);
+    };
+
+    const intersectsFrom = {
+      left: justIntersected(intersectsFromLeft),
+      right: justIntersected(intersectsFromRight),
+      above: justIntersected(intersectsFromAbove),
+      below: justIntersected(intersectsFromBelow),
+    };
+    return { intersects: true, intersectsFrom };
   };
 
   const mainLoop = () => {
@@ -231,13 +242,13 @@ const main = function () {
         // nextTop = HEIGHT - BALL_SIZE;
       }
 
-      const curBox = {
+      const oldBall = {
         left: ballLeft,
         right: ballLeft + BALL_SIZE,
         top: ballTop,
         bottom: ballTop + BALL_SIZE,
       };
-      const nextBox = {
+      const newBall = {
         left: nextLeft,
         right: nextLeft + BALL_SIZE,
         top: nextTop,
@@ -248,9 +259,18 @@ const main = function () {
         .querySelector("div[role='main']")
         .querySelectorAll("div[role='button']")
         .forEach((event) => {
+          if (event.dataset.intersected) {
+            return;
+          }
+
           const eventBounds = translatedBounds(event);
-          const intersections = getIntersections(nextBox, eventBounds);
-          if (intersections.intersects && !event.dataset.intersected) {
+          const { intersects, intersectsFrom } = getIntersectionState({
+            oldBall,
+            newBall,
+            elt: eventBounds,
+          });
+
+          if (intersects) {
             console.log(`INTERSECTION DETECTED: ${event.textContent}`);
             event.style.transition =
               "opacity 0.5s ease, background-color 0.5s ease";
@@ -261,44 +281,28 @@ const main = function () {
               console.log("SKIPPING A COLLISION");
               return;
             }
-            console.log(`NEXT BOX: ${JSON.stringify(nextBox)}`);
+            console.log(`NEXT BOX: ${JSON.stringify(newBall)}`);
             console.log(`EVENT BOUNDS: ${JSON.stringify(eventBounds)}`);
-            console.log(`INTERSECTIONS: ${JSON.stringify(intersections)}`);
+            console.log(`INTERSECTIONS: ${JSON.stringify(intersectsFrom)}`);
             console.log("--------------");
 
-            if (
-              movingRight &&
-              intersectsFromLeft(nextBox, eventBounds) &&
-              !intersectsFromLeft(curBox, eventBounds)
-            ) {
+            if (movingRight && intersectsFrom.left) {
               direction.x *= -1;
-              ensureToLeftOf(nextBox, eventBounds.left);
+              ensureToLeftOf(newBall, eventBounds.left);
               hasCollided = true;
-            } else if (
-              movingLeft &&
-              intersectsFromRight(nextBox, eventBounds) &&
-              !intersectsFromRight(curBox, eventBounds)
-            ) {
+            } else if (movingLeft && intersectsFrom.right) {
               direction.x *= -1;
-              ensureToRightOf(nextBox, eventBounds.right);
+              ensureToRightOf(newBall, eventBounds.right);
               hasCollided = true;
             }
 
-            if (
-              movingDown &&
-              intersectsFromAbove(nextBox, eventBounds) &&
-              !intersectsFromAbove(curBox, eventBounds)
-            ) {
+            if (movingDown && intersectsFrom.above) {
               direction.y *= -1;
-              ensureAbove(nextBox, eventBounds.top);
+              ensureAbove(newBall, eventBounds.top);
               hasCollided = true;
-            } else if (
-              movingUp &&
-              intersectsFromBelow(nextBox, eventBounds) &&
-              !intersectsFromBelow(curBox, eventBounds)
-            ) {
+            } else if (movingUp && intersectsFrom.below) {
               direction.y *= -1;
-              ensureBelow(nextBox, eventBounds.bottom);
+              ensureBelow(newBall, eventBounds.bottom);
               hasCollided = true;
             }
 
@@ -311,9 +315,9 @@ const main = function () {
           }
         });
 
-      translateBall(nextBox.left, nextBox.top);
-      ballLeft = nextBox.left;
-      ballTop = nextBox.top;
+      translateBall(newBall.left, newBall.top);
+      ballLeft = newBall.left;
+      ballTop = newBall.top;
     }, TICK_TIME);
 
     setTimeout(() => {
