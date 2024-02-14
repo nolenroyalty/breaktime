@@ -29,7 +29,7 @@ const css = `
   width: calc(var(--size)* 1px);
   height: calc(var(--size)* 1px);
   background-color: var(--color-black);
-  border-radius: 50%;
+  border-radius: 50%; 
   will-change: transform;
   transition: transform 0.1s linear, opacity 1s ease;
   z-index: 1001;
@@ -62,9 +62,9 @@ const main = function () {
   document.head.appendChild(style);
 
   const BALL_SIZE = 50;
-  const TICK_TIME = 100;
-  const BASE_SPEED = 10;
-  const STOP_AFTER_THIS_MANY_TICKS = 150;
+  const TICK_TIME = 50;
+  const BASE_SPEED = 5;
+  const STOP_AFTER_THIS_MANY_TICKS = 300;
   const FADE_IN_TIME = 1000;
 
   const mainElt = document.querySelector("div[role='main']");
@@ -121,17 +121,26 @@ const main = function () {
   }
 
   const getIntersectionState = ({ oldBall, newBall, elt }) => {
-    const intersectsFromLeft = (ball, bounds) =>
-      ball.right >= bounds.left && ball.left <= bounds.left;
+    // We need to add 1 to all of these functions in case the ball is exactly on the edge of the element.
+    const leftIntersectionStrength = (ball, bounds) =>
+      ball.right >= bounds.left && ball.left <= bounds.left
+        ? 1 + ball.right - bounds.left
+        : 0;
 
-    const intersectsFromRight = (ball, bounds) =>
-      ball.left <= bounds.right && ball.right >= bounds.right;
+    const rightIntersectionStrength = (ball, bounds) =>
+      ball.left <= bounds.right && ball.right >= bounds.right
+        ? 1 + bounds.right - ball.left
+        : 0;
 
-    const intersectsFromAbove = (ball, bounds) =>
-      ball.bottom >= bounds.top && ball.top <= bounds.top;
+    const aboveIntersectionStrength = (ball, bounds) =>
+      ball.bottom >= bounds.top && ball.top <= bounds.top
+        ? 1 + ball.bottom - bounds.top
+        : 0;
 
-    const intersectsFromBelow = (ball, bounds) =>
-      ball.top <= bounds.bottom && ball.bottom >= bounds.bottom;
+    const belowIntersectionStrength = (ball, bounds) =>
+      ball.top <= bounds.bottom && ball.bottom >= bounds.bottom
+        ? 1 + bounds.bottom - ball.top
+        : 0;
 
     const doesNotIntersect =
       newBall.bottom < elt.top ||
@@ -147,11 +156,17 @@ const main = function () {
       return checkIntersect(newBall, elt) && !checkIntersect(oldBall, elt);
     };
 
+    const strengthIfJustIntersected = (strengthFn) => {
+      const oldStrength = strengthFn(oldBall, elt);
+      const newStrength = strengthFn(newBall, elt);
+      return oldStrength === 0 && newStrength > 0 ? newStrength : 0;
+    };
+
     const intersectsFrom = {
-      left: justIntersected(intersectsFromLeft),
-      right: justIntersected(intersectsFromRight),
-      above: justIntersected(intersectsFromAbove),
-      below: justIntersected(intersectsFromBelow),
+      left: strengthIfJustIntersected(leftIntersectionStrength),
+      right: strengthIfJustIntersected(rightIntersectionStrength),
+      above: strengthIfJustIntersected(aboveIntersectionStrength),
+      below: strengthIfJustIntersected(belowIntersectionStrength),
     };
     return { intersects: true, intersectsFrom };
   };
@@ -234,9 +249,11 @@ const main = function () {
     });
 
     function loop() {
+      const tickId = Math.floor(Math.random() * 1000000);
       let nextLeft = ballLeft + BASE_SPEED * direction.x;
       let nextTop = ballTop + BASE_SPEED * direction.y;
-      let hasCollided = false;
+      let hasCollidedX = false;
+      let hasCollidedY = false;
       const movingLeft = direction.x < 0;
       const movingRight = direction.x > 0;
       const movingUp = direction.y < 0;
@@ -245,20 +262,20 @@ const main = function () {
       if (nextLeft < 0) {
         direction.x *= -1;
         nextLeft = 0;
-        hasCollided = true;
+        hasCollidedX = true;
       } else if (nextLeft + BALL_SIZE > WIDTH) {
         direction.x *= -1;
-        hasCollided = true;
-        // nextLeft = WIDTH - BALL_SIZE;
+        nextLeft = WIDTH - BALL_SIZE;
+        hasCollidedX = true;
       }
       if (nextTop < 0) {
         direction.y *= -1;
         nextTop = 0;
-        hasCollided = true;
+        hasCollidedY = true;
       } else if (nextTop > HEIGHT - BALL_SIZE) {
         direction.y *= -1;
-        hasCollided = true;
-        // nextTop = HEIGHT - BALL_SIZE;
+        nextTop = HEIGHT - BALL_SIZE;
+        hasCollidedY = true;
       }
 
       const oldBall = makeBallBox(ballLeft, ballTop);
@@ -282,45 +299,77 @@ const main = function () {
         });
 
         if (intersects) {
-          console.log(`INTERSECTION DETECTED: ${event.textContent}`);
+          console.log(
+            `[${tickId}] INTERSECTION DETECTED: ${event.textContent}`
+          );
           collideWithEvent(event);
 
-          // I think we might want to handle X and Y separately here? unsure.
-          if (hasCollided) {
+          if (hasCollidedX && hasCollidedY) {
             console.log("SKIPPING A COLLISION");
             return;
           }
+          console.log(`OLD BOX: ${JSON.stringify(oldBall)}`);
           console.log(`NEXT BOX: ${JSON.stringify(newBall)}`);
           console.log(`EVENT BOUNDS: ${JSON.stringify(eventBounds)}`);
           console.log(`INTERSECTIONS: ${JSON.stringify(intersectsFrom)}`);
+
+          let intersectionStrength = Infinity;
+          let intersectionFn = null;
+
+          const maybeUpdateIntersection = (strength, fn) => {
+            // This is counterintuitive, but we care about the *smallest* strength. The way to think about it is that
+            // If there's an intersection, both a horizontal and vertical `intersectsFrom` must be true (if only one
+            // was true, the ball could be, say, between the event vertically but very far away horizontally.)
+
+            // Typically this function is only called once in a tick, because we only call it if the ball began to intersect
+            // the element in a direction *this tick*. But it's possible that that becomes true both horizontally and vertically
+            // in the same tick.
+
+            // If that happens we want to pick the smaller of the two strengths, because that's the one that happened second -
+            // meaning that it's the one that "caused" the intersection. A way to think about this is that if our tick function
+            // happened much more frequently, the larger strength intersection would likely have happened on a prior tick.
+            if (strength > 0 && strength < intersectionStrength) {
+              intersectionStrength = strength;
+              intersectionFn = fn;
+            }
+          };
+
+          if (!hasCollidedX && movingRight && intersectsFrom.left) {
+            maybeUpdateIntersection(intersectsFrom.left, () => {
+              ensureToLeftOf(newBall, eventBounds.left);
+              direction.x *= -1;
+              hasCollidedX = true;
+            });
+          } else if (!hasCollidedX && movingLeft && intersectsFrom.right) {
+            maybeUpdateIntersection(intersectsFrom.right, () => {
+              ensureToRightOf(newBall, eventBounds.right);
+              direction.x *= -1;
+              hasCollidedX = true;
+            });
+          }
+
+          if (!hasCollidedY && movingDown && intersectsFrom.above) {
+            maybeUpdateIntersection(intersectsFrom.above, () => {
+              ensureAbove(newBall, eventBounds.top);
+              direction.y *= -1;
+              hasCollidedY = true;
+            });
+          } else if (!hasCollidedY && movingUp && intersectsFrom.below) {
+            maybeUpdateIntersection(intersectsFrom.below, () => {
+              ensureBelow(newBall, eventBounds.bottom);
+              direction.y *= -1;
+              hasCollidedY = true;
+            });
+          }
+
+          if (intersectionFn) {
+            intersectionFn();
+          } else {
+            console.info(
+              `NO COLLISION DETECTED for ${event.textContent} | xCollision: ${hasCollidedX} | yCollision: ${hasCollidedY}`
+            );
+          }
           console.log("--------------");
-
-          if (movingRight && intersectsFrom.left) {
-            direction.x *= -1;
-            ensureToLeftOf(newBall, eventBounds.left);
-            hasCollided = true;
-          } else if (movingLeft && intersectsFrom.right) {
-            direction.x *= -1;
-            ensureToRightOf(newBall, eventBounds.right);
-            hasCollided = true;
-          }
-
-          if (movingDown && intersectsFrom.above) {
-            direction.y *= -1;
-            ensureAbove(newBall, eventBounds.top);
-            hasCollided = true;
-          } else if (movingUp && intersectsFrom.below) {
-            direction.y *= -1;
-            ensureBelow(newBall, eventBounds.bottom);
-            hasCollided = true;
-          }
-
-          if (!hasCollided) {
-            console.warn(`NO COLLISION DETECTED for ${event.textContent}`);
-            direction.x *= -1;
-            direction.y *= -1;
-            hasCollided = true;
-          }
         }
       });
 
