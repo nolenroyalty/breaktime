@@ -441,7 +441,6 @@ const main = function () {
           hasCollidedY = true;
         }
         ensureAbove(newBall, paddleBox.top);
-        // hasCollidedX = true;
       }
 
       let doClick = true;
