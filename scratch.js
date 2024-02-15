@@ -25,6 +25,112 @@ const maybeNegate = () => (Math.random() > 0.5 ? 1 : -1);
 const randomMaybeNegative = (max) =>
   Math.floor(Math.random() * max * maybeNegate());
 
+function squarecollision() {
+  const eventBounds = translatedBounds(event);
+  const { intersects, intersectsFrom } = getIntersectionState({
+    oldBall,
+    newBall,
+    elt: eventBounds,
+  });
+  if (intersects) {
+    console.log(`[${tickId}] INTERSECTION DETECTED: ${event.textContent}`);
+    collideWithEvent(event, doClick);
+    doClick = false;
+
+    if (hasCollidedX && hasCollidedY) {
+      console.log("SKIPPING A COLLISION");
+      return;
+    }
+    console.log(`OLD BOX: ${JSON.stringify(oldBall)}`);
+    console.log(`NEXT BOX: ${JSON.stringify(newBall)}`);
+    console.log(`EVENT BOUNDS: ${JSON.stringify(eventBounds)}`);
+    console.log(`INTERSECTIONS: ${JSON.stringify(intersectsFrom)}`);
+
+    let intersectionStrength = Infinity;
+    let intersectionFn = null;
+
+    const maybeUpdateIntersection = (strength, fn) => {
+      // This is counterintuitive, but we care about the *smallest* strength.  The
+      // way to think about it is that if there's an intersection, both a horizontal
+      // and vertical `intersectsFrom` must be true (if only one was true, the ball
+      // could be, say, between the event vertically but very far away horizontally.)
+
+      // Typically this function is only called once in a tick, because we only call
+      // it if the ball began to intersect the element in a direction *this tick*.
+      // But it's possible that that becomes true both horizontally and vertically in
+      // the same tick.
+
+      // If that happens we want to pick the smaller of the two strengths, because
+      // that's the one that happened second - meaning that it's the one that
+      // "caused" the intersection. A way to think about this is that if our tick
+      // function happened much more frequently, the larger strength intersection
+      // would likely have happened on a prior tick.
+
+      if (strength > 0 && strength < intersectionStrength) {
+        intersectionStrength = strength;
+        intersectionFn = fn;
+      }
+    };
+
+    // Related to the above comment, it's important that our !hasCollided checks are inside the update
+    // intersection logic, instead of guarding our update to our strongest intersection function for
+    // an element. This is relevant when we collide with two elements on the same tick. Let's say that
+    // we collide with two elements, A and B.
+    // We're moving to the right and up.
+    // For A, we intersect from the bottom. For B, we intersect from the left and bottom.
+    // We want to avoid reversing our vertical direction twice, so it's important that we check !hasCollidedY.
+    // But we only want to additionally reverse our *horizontal* direction if, without A, we would have chosen
+    // to reverse B's horizontal direction instead of its vertical directon (that is, if the horizontal strength
+    // is weakest). If the !hasCollided checks are in the outer if statement we wouldn't check our horizontal
+    // strength against the weakest vertical strength and we'd always reverse our horizontal direction.
+
+    if (movingRight && intersectsFrom.left) {
+      maybeUpdateIntersection(intersectsFrom.left, () => {
+        if (!hasCollidedX) {
+          ensureToLeftOf(newBall, eventBounds.left);
+          direction.x *= -1;
+          hasCollidedX = true;
+        }
+      });
+    } else if (movingLeft && intersectsFrom.right) {
+      maybeUpdateIntersection(intersectsFrom.right, () => {
+        if (!hasCollidedX) {
+          ensureToRightOf(newBall, eventBounds.right);
+          direction.x *= -1;
+          hasCollidedX = true;
+        }
+      });
+    }
+
+    if (movingDown && intersectsFrom.above) {
+      maybeUpdateIntersection(intersectsFrom.above, () => {
+        if (!hasCollidedY) {
+          ensureAbove(newBall, eventBounds.top);
+          direction.y *= -1;
+          hasCollidedY = true;
+        }
+      });
+    } else if (movingUp && intersectsFrom.below) {
+      maybeUpdateIntersection(intersectsFrom.below, () => {
+        if (!hasCollidedY) {
+          ensureBelow(newBall, eventBounds.bottom);
+          direction.y *= -1;
+          hasCollidedY = true;
+        }
+      });
+    }
+
+    if (intersectionFn) {
+      intersectionFn();
+    } else {
+      console.info(
+        `NO COLLISION DETECTED for ${event.textContent} | xCollision: ${hasCollidedX} | yCollision: ${hasCollidedY}`
+      );
+    }
+    console.log("--------------");
+  }
+}
+
 // const interval = setInterval(() => {
 //   const oldBallRect = ball.getBoundingClientRect();
 //   let nextLeft = ballLeft + SPEED * direction.x;

@@ -128,6 +128,10 @@ const css = `
   opacity: 0.3;
   transition: opacity 0.5s ease, background-color 0.5s ease;
 }
+
+.brickEvent {
+  border-radius: 0;
+}
 `;
 
 const main = function () {
@@ -136,6 +140,7 @@ const main = function () {
   document.head.appendChild(style);
 
   const BALL_SIZE = 50;
+  const RADIUS = BALL_SIZE / 2;
   const TICK_TIME = 50;
   const BASE_SPEED = 7.5;
   const STOP_AFTER_THIS_MANY_TICKS = 2000;
@@ -359,6 +364,153 @@ const main = function () {
     const makePaddleBox = (left, top) =>
       makeBox(left, top, PADDLE_WIDTH, PADDLE_HEIGHT);
 
+    function circleOfBox(left, top) {
+      return { x: left + RADIUS, y: top + RADIUS, r: RADIUS };
+    }
+
+    function getClosestPointToCircle(circle, rect) {
+      const closestX =
+        circle.x < rect.left
+          ? rect.left
+          : circle.x > rect.right
+          ? rect.right
+          : circle.x;
+      const closestY =
+        circle.y < rect.top
+          ? rect.top
+          : circle.y > rect.bottom
+          ? rect.bottom
+          : circle.y;
+      return { x: closestX, y: closestY };
+    }
+
+    function getDistance(obj1, obj2) {
+      const dx = obj1.x - obj2.x;
+      const dy = obj1.y - obj2.y;
+      return Math.sqrt(dx * dx + dy * dy);
+    }
+
+    function circleCollidesWithRect(circle, closestPoint) {
+      const distance = getDistance(circle, closestPoint);
+      return distance < circle.r;
+    }
+
+    function detectCircularCollision(oldBall, newBall, collisionRect) {
+      const oldCircle = circleOfBox(oldBall.left, oldBall.top);
+      const newCircle = circleOfBox(newBall.left, newBall.top);
+      const closestPoint = getClosestPointToCircle(newCircle, collisionRect);
+      const collided = circleCollidesWithRect(newCircle, closestPoint);
+      return collided;
+    }
+
+    function handleCircularCollision(
+      oldBall,
+      newBall,
+      collisionRect,
+      direction,
+      collisionState
+    ) {
+      const oldCircle = circleOfBox(oldBall.left, oldBall.top);
+      const newCircle = circleOfBox(newBall.left, newBall.top);
+      const oldClosestPoint = getClosestPointToCircle(oldCircle, collisionRect);
+      const newClosestPoint = getClosestPointToCircle(newCircle, collisionRect);
+
+      const distanceX = oldClosestPoint.x - oldCircle.x;
+      const distanceY = oldClosestPoint.y - oldCircle.y;
+
+      // The distance between the circle and the closest point on the rectangle,
+      // normalized by how fast the ball is moving in that direction; this is
+      // the amount of time it would take for the ball to collide with the rectange
+      // in the X and Y directions.
+      const normalizedX = distanceX / direction.x;
+      const normalizedY = distanceY / direction.y;
+      let didCollide = false;
+      if (
+        normalizedX > 0 &&
+        !collisionState.hasCollidedX &&
+        oldClosestPoint.x == newClosestPoint.x
+      ) {
+        const amountToMove = Math.abs(distanceX) - RADIUS;
+        direction.x *= -1;
+        collisionState.hasCollidedX = true;
+        newBall.left += amountToMove * direction.x;
+        didCollide = true;
+        console.log(`COLLIDED X: ${amountToMove} | ${normalizedX}`);
+      }
+      if (
+        normalizedY > 0 &&
+        !collisionState.hasCollidedY &&
+        oldClosestPoint.y == newClosestPoint.y
+      ) {
+        const amountToMove = Math.abs(distanceY) - RADIUS;
+        direction.y *= -1;
+        collisionState.hasCollidedY = true;
+        newBall.top += amountToMove * direction.y;
+        didCollide = true;
+        console.log(`COLLIDED Y: ${amountToMove} | ${normalizedY}`);
+      }
+
+      return didCollide;
+    }
+
+    function handleCircularCollisionNew(
+      oldBall,
+      newBall,
+      collisionRect,
+      direction,
+      collisionState
+    ) {
+      const oldCircle = circleOfBox(oldBall.left, oldBall.top);
+      const newCircle = circleOfBox(newBall.left, newBall.top);
+
+      const relevantSideVertically =
+        direction.y > 0 ? collisionRect.top : collisionRect.bottom;
+      const relevantSideHorizontally =
+        direction.x > 0 ? collisionRect.right : collisionRect.left;
+
+      const ticksToCollisionX = Math.abs(
+        (RADIUS - Math.abs(relevantSideHorizontally - newCircle.x)) /
+          direction.x
+      );
+      const ticksToCollisionY = Math.abs(
+        (RADIUS - Math.abs(relevantSideVertically - newCircle.y)) / direction.y
+      );
+      didCollide = false;
+      if (
+        ticksToCollisionX < ticksToCollisionY &&
+        !collisionState.hasCollidedX
+      ) {
+        direction.x *= -1;
+        newBall.left += ticksToCollisionX * direction.x;
+        collisionState.hasCollidedX = true;
+        didCollide = true;
+      } else if (
+        ticksToCollisionY < ticksToCollisionX &&
+        !collisionState.hasCollidedY
+      ) {
+        direction.y *= -1;
+        newBall.top += ticksToCollisionY * direction.y;
+        collisionState.hasCollidedY = true;
+        didCollide = true;
+      } else if (ticksToCollisionX === ticksToCollisionY) {
+        if (!collisionState.hasCollidedX) {
+          direction.x *= -1;
+          newBall.left += ticksToCollisionX * direction.x;
+          newBall.left += distX;
+          collisionState.hasCollidedX = true;
+          didCollide = true;
+        }
+        if (!collisionState.hasCollidedY) {
+          direction.y *= -1;
+          newBall.top += distY;
+          newBall.top += ticksToCollisionY * direction.y;
+          collisionState.hasCollidedY = true;
+          didCollide = true;
+        }
+        return didCollide;
+      }
+    }
+
     function loop() {
       const tickId = Math.floor(Math.random() * 1000000);
       let nextLeft = ballLeft + BASE_SPEED * direction.x;
@@ -398,50 +550,73 @@ const main = function () {
       }
 
       const paddleBox = makePaddleBox(paddleLeft, paddleTop);
-      const {
-        intersects: intersectsPaddle,
-        intersectsFrom: intersectsPaddleFrom,
-      } = getIntersectionState({
+      const collidesWithPaddle = detectCircularCollision(
         oldBall,
         newBall,
-        elt: paddleBox,
-      });
+        paddleBox
+      );
 
-      // Consider whether this should work if you move the paddle into the ball such that
-      // the size of the paddle would hit it.
-      if (intersectsPaddle) {
-        console.log(`[${tickId}] PADDLE INTERSECTION DETECTED`);
-        if (RELATIVE_PADDLE_BOUNCES) {
-          if (direction.y < 0) {
-            console.log(
-              `[${tickId}] BUG? PADDLE INTERSECTION DETECTED BUT BALL IS MOVING UP`
-            );
-          } else {
-            // shoutout to https://gamedev.stackexchange.com/questions/4253/in-pong-how-do-you-calculate-the-balls-direction-when-it-bounces-off-the-paddl
-            const paddleCenter = paddleBox.left + PADDLE_WIDTH / 2;
-            const oldBallCenter = oldBall.left + BALL_SIZE / 2;
-            const delta = (paddleTop - oldBall.bottom) / direction.y;
-            const xIntercept =
-              delta * direction.x + oldBall.left + BALL_SIZE / 2;
-            const relativeIntersectX = paddleCenter - xIntercept;
-            const normalizedRelativeIntersectX =
-              relativeIntersectX / (PADDLE_WIDTH / 2);
-            const MAXBOUNCEANGLE = (4 * Math.PI) / 12; // 60 degrees
-            const bounceAngle = normalizedRelativeIntersectX * MAXBOUNCEANGLE;
-            direction.x = -Math.sin(bounceAngle);
-            direction.y = -Math.cos(bounceAngle);
-            console.log(
-              `[${tickId}] DIRECTIONS bounceAngle: ${bounceAngle} x: ${direction.x} y: ${direction.y}`
-            );
-            hasCollidedY = true;
-            hasCollidedX = true;
-          }
-        } else {
-          direction.y *= -1;
-          hasCollidedY = true;
+      if (collidesWithPaddle) {
+        console.log(`[${tickId}] PADDLE COLLISION DETECTED`);
+        const collisionState = { hasCollidedX, hasCollidedY };
+        const bounced = handleCircularCollisionNew(
+          oldBall,
+          newBall,
+          paddleBox,
+          direction,
+          collisionState
+        );
+        hasCollidedX = collisionState.hasCollidedX;
+        hasCollidedY = collisionState.hasCollidedY;
+        if (!bounced) {
+          console.log(`[${tickId}] BUG: SKIPPED BOUNCE OFF PADDLE`);
         }
-        ensureAbove(newBall, paddleBox.top);
       }
+
+      // const {
+      //   intersects: intersectsPaddle,
+      //   intersectsFrom: intersectsPaddleFrom,
+      // } = getIntersectionState({
+      //   oldBall,
+      //   newBall,
+      //   elt: paddleBox,
+      // });
+
+      // // Consider whether this should work if you move the paddle into the ball such that
+      // // the size of the paddle would hit it.
+      // if (intersectsPaddle) {
+      //   console.log(`[${tickId}] PADDLE INTERSECTION DETECTED`);
+      //   if (RELATIVE_PADDLE_BOUNCES) {
+      //     if (direction.y < 0) {
+      //       console.log(
+      //         `[${tickId}] BUG? PADDLE INTERSECTION DETECTED BUT BALL IS MOVING UP`
+      //       );
+      //     } else {
+      //       // shoutout to https://gamedev.stackexchange.com/questions/4253/in-pong-how-do-you-calculate-the-balls-direction-when-it-bounces-off-the-paddl
+      //       const paddleCenter = paddleBox.left + PADDLE_WIDTH / 2;
+      //       const oldBallCenter = oldBall.left + BALL_SIZE / 2;
+      //       const delta = (paddleTop - oldBall.bottom) / direction.y;
+      //       const xIntercept =
+      //         delta * direction.x + oldBall.left + BALL_SIZE / 2;
+      //       const relativeIntersectX = paddleCenter - xIntercept;
+      //       const normalizedRelativeIntersectX =
+      //         relativeIntersectX / (PADDLE_WIDTH / 2);
+      //       const MAXBOUNCEANGLE = (4 * Math.PI) / 12; // 60 degrees
+      //       const bounceAngle = normalizedRelativeIntersectX * MAXBOUNCEANGLE;
+      //       direction.x = -Math.sin(bounceAngle);
+      //       direction.y = -Math.cos(bounceAngle);
+      //       console.log(
+      //         `[${tickId}] DIRECTIONS bounceAngle: ${bounceAngle} x: ${direction.x} y: ${direction.y}`
+      //       );
+      //       hasCollidedY = true;
+      //       hasCollidedX = true;
+      //     }
+      //   } else {
+      //     direction.y *= -1;
+      //     hasCollidedY = true;
+      //   }
+      //   ensureAbove(newBall, paddleBox.top);
+      // }
 
       let doClick = true;
       getEvents().forEach((event) => {
@@ -450,110 +625,29 @@ const main = function () {
         }
 
         const eventBounds = translatedBounds(event);
-        const { intersects, intersectsFrom } = getIntersectionState({
-          oldBall,
-          newBall,
-          elt: eventBounds,
-        });
-
-        if (intersects) {
+        const collided = detectCircularCollision(oldBall, newBall, eventBounds);
+        if (collided) {
           console.log(
-            `[${tickId}] INTERSECTION DETECTED: ${event.textContent}`
+            `[${tickId}] CIRCULAR COLLISION DETECTED: ${event.textContent}`
           );
           collideWithEvent(event, doClick);
-          doClick = false;
-
-          if (hasCollidedX && hasCollidedY) {
-            console.log("SKIPPING A COLLISION");
-            return;
-          }
-          console.log(`OLD BOX: ${JSON.stringify(oldBall)}`);
-          console.log(`NEXT BOX: ${JSON.stringify(newBall)}`);
-          console.log(`EVENT BOUNDS: ${JSON.stringify(eventBounds)}`);
-          console.log(`INTERSECTIONS: ${JSON.stringify(intersectsFrom)}`);
-
-          let intersectionStrength = Infinity;
-          let intersectionFn = null;
-
-          const maybeUpdateIntersection = (strength, fn) => {
-            // This is counterintuitive, but we care about the *smallest* strength.  The
-            // way to think about it is that if there's an intersection, both a horizontal
-            // and vertical `intersectsFrom` must be true (if only one was true, the ball
-            // could be, say, between the event vertically but very far away horizontally.)
-
-            // Typically this function is only called once in a tick, because we only call
-            // it if the ball began to intersect the element in a direction *this tick*.
-            // But it's possible that that becomes true both horizontally and vertically in
-            // the same tick.
-
-            // If that happens we want to pick the smaller of the two strengths, because
-            // that's the one that happened second - meaning that it's the one that
-            // "caused" the intersection. A way to think about this is that if our tick
-            // function happened much more frequently, the larger strength intersection
-            // would likely have happened on a prior tick.
-
-            if (strength > 0 && strength < intersectionStrength) {
-              intersectionStrength = strength;
-              intersectionFn = fn;
-            }
-          };
-
-          // Related to the above comment, it's important that our !hasCollided checks are inside the update
-          // intersection logic, instead of guarding our update to our strongest intersection function for
-          // an element. This is relevant when we collide with two elements on the same tick. Let's say that
-          // we collide with two elements, A and B.
-          // We're moving to the right and up.
-          // For A, we intersect from the bottom. For B, we intersect from the left and bottom.
-          // We want to avoid reversing our vertical direction twice, so it's important that we check !hasCollidedY.
-          // But we only want to additionally reverse our *horizontal* direction if, without A, we would have chosen
-          // to reverse B's horizontal direction instead of its vertical directon (that is, if the horizontal strength
-          // is weakest). If the !hasCollided checks are in the outer if statement we wouldn't check our horizontal
-          // strength against the weakest vertical strength and we'd always reverse our horizontal direction.
-
-          if (movingRight && intersectsFrom.left) {
-            maybeUpdateIntersection(intersectsFrom.left, () => {
-              if (!hasCollidedX) {
-                ensureToLeftOf(newBall, eventBounds.left);
-                direction.x *= -1;
-                hasCollidedX = true;
-              }
-            });
-          } else if (movingLeft && intersectsFrom.right) {
-            maybeUpdateIntersection(intersectsFrom.right, () => {
-              if (!hasCollidedX) {
-                ensureToRightOf(newBall, eventBounds.right);
-                direction.x *= -1;
-                hasCollidedX = true;
-              }
-            });
-          }
-
-          if (movingDown && intersectsFrom.above) {
-            maybeUpdateIntersection(intersectsFrom.above, () => {
-              if (!hasCollidedY) {
-                ensureAbove(newBall, eventBounds.top);
-                direction.y *= -1;
-                hasCollidedY = true;
-              }
-            });
-          } else if (movingUp && intersectsFrom.below) {
-            maybeUpdateIntersection(intersectsFrom.below, () => {
-              if (!hasCollidedY) {
-                ensureBelow(newBall, eventBounds.bottom);
-                direction.y *= -1;
-                hasCollidedY = true;
-              }
-            });
-          }
-
-          if (intersectionFn) {
-            intersectionFn();
+          const collisionState = { hasCollidedX, hasCollidedY };
+          const bounced = handleCircularCollisionNew(
+            oldBall,
+            newBall,
+            eventBounds,
+            direction,
+            collisionState
+          );
+          if (bounced) {
+            console.log(`[${tickId}] BOUNCED OFF EVENT: ${event.textContent}`);
           } else {
-            console.info(
-              `NO COLLISION DETECTED for ${event.textContent} | xCollision: ${hasCollidedX} | yCollision: ${hasCollidedY}`
+            console.log(
+              `[${tickId}] SKIPPED BOUNCE OFF EVENT: ${event.textContent}`
             );
           }
-          console.log("--------------");
+          hasCollidedX = collisionState.hasCollidedX;
+          hasCollidedY = collisionState.hasCollidedY;
         }
       });
 
@@ -595,6 +689,7 @@ const main = function () {
 function resetEvents() {
   getEvents().forEach((event, i) => {
     event.classList.remove("faded");
+    event.classList.add("brickEvent");
     event.dataset.intersected = "";
   });
 }
