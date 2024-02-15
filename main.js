@@ -4,6 +4,61 @@ const getEvents = () => {
     .querySelectorAll("div[role='button']");
 };
 
+// const acceptOrDeclineEvent = (event, action, delay = 10) => {
+//   console.log("ACCEPT OR DECLINE");
+//   let targetString = "unknown";
+//   if (action === "accept") {
+//     targetString = "Yes";
+//   } else if (action === "decline") {
+//     targetString = "No";
+//   } else {
+//     console.error(`Unknown action: ${action}`);
+//     return;
+//   }
+//   setTimeout(() => {
+//     event.click();
+//     const goingSpan = Array.from(
+//       document.querySelectorAll("span[aria-hidden='true']")
+//     ).filter((span) => span.textContent === "Going?")[0];
+//     if (goingSpan) {
+//       console.log("FOUND GOING SPAN");
+//       const spans = goingSpan.nextSibling?.querySelectorAll("span");
+//       if (spans) {
+//         console.log("FOUND INNER SPANS");
+//         Array.from(spans)
+//           .filter((span) => span.outerText === targetString)[0]
+//           ?.parentElement?.click();
+//       }
+//     }
+//   }, 1);
+
+// setTimeout(() => {
+//   const buttons = Array.from(document.querySelectorAll("div[role='button']"));
+//   if (buttons) {
+//     const innerSpans = buttons.flatMap((button) =>
+//       Array.from(document.querySelectorAll("span")).filter(
+//         (span) => span.textContent === "OK"
+//       )
+//     );
+//     innerSpans[0]?.parentElement?.click();
+//     console.log("CLICKED OK");
+//   }
+// }, 5);
+// };
+
+const dismissBigModal = () => {
+  const buttons = Array.from(document.querySelectorAll("div[role='button']"));
+  if (buttons) {
+    const innerSpans = buttons.flatMap((button) =>
+      Array.from(document.querySelectorAll("span")).filter(
+        (span) => span.textContent === "OK"
+      )
+    );
+    innerSpans[0]?.parentElement?.click();
+    console.log("CLICKED OK");
+  }
+};
+
 const css = `
 :root {
   --color-black: hsl(235deg 15% 15%);
@@ -85,7 +140,7 @@ const main = function () {
   const BASE_SPEED = 7.5;
   const STOP_AFTER_THIS_MANY_TICKS = 2000;
   const FADE_IN_TIME = 1000;
-  const RELATIVE_PADDLE_BOUNCES = true;
+  const RELATIVE_PADDLE_BOUNCES = false;
 
   const mainElt = document.querySelector("div[role='main']");
   const grid = mainElt.querySelector("div[role='grid']");
@@ -104,7 +159,7 @@ const main = function () {
   // It's gross but these need to be global :/
   let paddleLeft = WIDTH / 2 - 50;
   const paddleTop = HEIGHT - 22;
-  let ballLeft = WIDTH / 2;
+  let ballLeft = WIDTH / 2 - BALL_SIZE / 2;
   let ballTop = HEIGHT - 100;
 
   function createElt(id, style = {}, classList = []) {
@@ -337,7 +392,7 @@ const main = function () {
       const oldBall = makeBallBox(ballLeft, ballTop);
       const newBall = makeBallBox(nextLeft, nextTop);
 
-      function collideWithEvent(event) {
+      function collideWithEvent(event, doClick) {
         event.classList.add("faded");
         event.dataset.intersected = "true";
       }
@@ -389,6 +444,7 @@ const main = function () {
         // hasCollidedX = true;
       }
 
+      let doClick = true;
       getEvents().forEach((event) => {
         if (event.dataset.intersected) {
           return;
@@ -405,7 +461,8 @@ const main = function () {
           console.log(
             `[${tickId}] INTERSECTION DETECTED: ${event.textContent}`
           );
-          collideWithEvent(event);
+          collideWithEvent(event, doClick);
+          doClick = false;
 
           if (hasCollidedX && hasCollidedY) {
             console.log("SKIPPING A COLLISION");
@@ -420,17 +477,22 @@ const main = function () {
           let intersectionFn = null;
 
           const maybeUpdateIntersection = (strength, fn) => {
-            // This is counterintuitive, but we care about the *smallest* strength. The way to think about it is that
-            // If there's an intersection, both a horizontal and vertical `intersectsFrom` must be true (if only one
-            // was true, the ball could be, say, between the event vertically but very far away horizontally.)
+            // This is counterintuitive, but we care about the *smallest* strength.  The
+            // way to think about it is that if there's an intersection, both a horizontal
+            // and vertical `intersectsFrom` must be true (if only one was true, the ball
+            // could be, say, between the event vertically but very far away horizontally.)
 
-            // Typically this function is only called once in a tick, because we only call it if the ball began to intersect
-            // the element in a direction *this tick*. But it's possible that that becomes true both horizontally and vertically
-            // in the same tick.
+            // Typically this function is only called once in a tick, because we only call
+            // it if the ball began to intersect the element in a direction *this tick*.
+            // But it's possible that that becomes true both horizontally and vertically in
+            // the same tick.
 
-            // If that happens we want to pick the smaller of the two strengths, because that's the one that happened second -
-            // meaning that it's the one that "caused" the intersection. A way to think about this is that if our tick function
-            // happened much more frequently, the larger strength intersection would likely have happened on a prior tick.
+            // If that happens we want to pick the smaller of the two strengths, because
+            // that's the one that happened second - meaning that it's the one that
+            // "caused" the intersection. A way to think about this is that if our tick
+            // function happened much more frequently, the larger strength intersection
+            // would likely have happened on a prior tick.
+
             if (strength > 0 && strength < intersectionStrength) {
               intersectionStrength = strength;
               intersectionFn = fn;
@@ -532,7 +594,7 @@ const main = function () {
 };
 
 function resetEvents() {
-  getEvents().forEach((event) => {
+  getEvents().forEach((event, i) => {
     event.classList.remove("faded");
     event.dataset.intersected = "";
   });
