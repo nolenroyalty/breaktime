@@ -531,7 +531,6 @@ const main = function () {
         hasCollided.y = true;
       }
 
-      const oldBall = makeBallBox(ballLeft, ballTop);
       const newBall = makeBallBox(nextLeft, nextTop);
 
       function collideWithEvent(event, doClick) {
@@ -554,51 +553,6 @@ const main = function () {
           console.log(`[${tickId}] BUG: SKIPPED BOUNCE OFF PADDLE`);
         }
       }
-
-      // const {
-      //   intersects: intersectsPaddle,
-      //   intersectsFrom: intersectsPaddleFrom,
-      // } = getIntersectionState({
-      //   oldBall,
-      //   newBall,
-      //   elt: paddleBox,
-      // });
-
-      // // Consider whether this should work if you move the paddle into the ball such that
-      // // the size of the paddle would hit it.
-      // if (intersectsPaddle) {
-      //   console.log(`[${tickId}] PADDLE INTERSECTION DETECTED`);
-      //   if (RELATIVE_PADDLE_BOUNCES) {
-      //     if (direction.y < 0) {
-      //       console.log(
-      //         `[${tickId}] BUG? PADDLE INTERSECTION DETECTED BUT BALL IS MOVING UP`
-      //       );
-      //     } else {
-      //       // shoutout to https://gamedev.stackexchange.com/questions/4253/in-pong-how-do-you-calculate-the-balls-direction-when-it-bounces-off-the-paddl
-      //       const paddleCenter = paddleBox.left + PADDLE_WIDTH / 2;
-      //       const oldBallCenter = oldBall.left + BALL_SIZE / 2;
-      //       const delta = (paddleTop - oldBall.bottom) / direction.y;
-      //       const xIntercept =
-      //         delta * direction.x + oldBall.left + BALL_SIZE / 2;
-      //       const relativeIntersectX = paddleCenter - xIntercept;
-      //       const normalizedRelativeIntersectX =
-      //         relativeIntersectX / (PADDLE_WIDTH / 2);
-      //       const MAXBOUNCEANGLE = (4 * Math.PI) / 12; // 60 degrees
-      //       const bounceAngle = normalizedRelativeIntersectX * MAXBOUNCEANGLE;
-      //       direction.x = -Math.sin(bounceAngle);
-      //       direction.y = -Math.cos(bounceAngle);
-      //       console.log(
-      //         `[${tickId}] DIRECTIONS bounceAngle: ${bounceAngle} x: ${direction.x} y: ${direction.y}`
-      //       );
-      //       y = true;
-      //       x = true;
-      //     }
-      //   } else {
-      //     direction.y *= -1;
-      //     y = true;
-      //   }
-      //   ensureAbove(newBall, paddleBox.top);
-      // }
 
       let doClick = true;
       getEvents().forEach((event) => {
