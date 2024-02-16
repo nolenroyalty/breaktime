@@ -395,75 +395,19 @@ const main = function () {
       return distance < circle.r;
     }
 
-    function detectCircularCollision(oldBall, newBall, collisionRect) {
-      const oldCircle = circleOfBox(oldBall.left, oldBall.top);
+    function detectCircularCollision(newBall, collisionRect) {
       const newCircle = circleOfBox(newBall.left, newBall.top);
       const closestPoint = getClosestPointToCircle(newCircle, collisionRect);
       const collided = circleCollidesWithRect(newCircle, closestPoint);
       return collided;
     }
 
-    function handleCircularCollision(
-      oldBall,
-      newBall,
-      collisionRect,
-      direction,
-      hasCollided
-    ) {
-      const oldCircle = circleOfBox(oldBall.left, oldBall.top);
-      const newCircle = circleOfBox(newBall.left, newBall.top);
-      const oldClosestPoint = getClosestPointToCircle(oldCircle, collisionRect);
-      const newClosestPoint = getClosestPointToCircle(newCircle, collisionRect);
-
-      const distanceX = oldClosestPoint.x - oldCircle.x;
-      const distanceY = oldClosestPoint.y - oldCircle.y;
-
-      // The distance between the circle and the closest point on the rectangle,
-      // normalized by how fast the ball is moving in that direction; this is
-      // the amount of time it would take for the ball to collide with the rectange
-      // in the X and Y directions.
-      const normalizedX = distanceX / direction.x;
-      const normalizedY = distanceY / direction.y;
-      let didCollide = false;
-      if (
-        normalizedX > 0 &&
-        !hasCollided.x &&
-        oldClosestPoint.x == newClosestPoint.x
-      ) {
-        const amountToMove = Math.abs(distanceX) - RADIUS;
-        direction.x *= -1;
-        hasCollided.x = true;
-        newBall.left += amountToMove * direction.x;
-        didCollide = true;
-        console.log(
-          `COLLIDED X: ${amountToMove} | ${normalizedX} | dx ${
-            direction.x * -1
-          } -> ${direction.x}`
-        );
-      }
-      if (
-        normalizedY > 0 &&
-        !hasCollided.y &&
-        oldClosestPoint.y == newClosestPoint.y
-      ) {
-        const amountToMove = Math.abs(distanceY) - RADIUS;
-        direction.y *= -1;
-        hasCollided.y = true;
-        newBall.top += amountToMove * direction.y;
-        didCollide = true;
-      }
-
-      return didCollide;
-    }
-
     function handleCircularCollisionNew(
-      oldBall,
       newBall,
       collisionRect,
       direction,
       hasCollided
     ) {
-      const oldCircle = circleOfBox(oldBall.left, oldBall.top);
       const newCircle = circleOfBox(newBall.left, newBall.top);
 
       const dHorizontal = direction.x > 0 ? "right" : "left";
@@ -596,16 +540,11 @@ const main = function () {
       }
 
       const paddleBox = makePaddleBox(paddleLeft, paddleTop);
-      const collidesWithPaddle = detectCircularCollision(
-        oldBall,
-        newBall,
-        paddleBox
-      );
+      const collidesWithPaddle = detectCircularCollision(newBall, paddleBox);
 
       if (collidesWithPaddle) {
         console.log(`[${tickId}] PADDLE COLLISION DETECTED`);
         const bounced = handleCircularCollisionNew(
-          oldBall,
           newBall,
           paddleBox,
           direction,
@@ -668,14 +607,13 @@ const main = function () {
         }
 
         const eventBounds = translatedBounds(event);
-        const collided = detectCircularCollision(oldBall, newBall, eventBounds);
+        const collided = detectCircularCollision(newBall, eventBounds);
         if (collided) {
           console.log(
             `[${tickId}] CIRCULAR COLLISION DETECTED: ${event.textContent}`
           );
           collideWithEvent(event, doClick);
           const bounced = handleCircularCollisionNew(
-            oldBall,
             newBall,
             eventBounds,
             direction,
