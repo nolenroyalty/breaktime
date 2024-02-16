@@ -230,57 +230,6 @@ const main = function () {
     addTransform(elt, `rotate(${angle}deg)`, "rotate");
   }
 
-  const getIntersectionState = ({ oldBall, newBall, elt }) => {
-    // We need to add 1 to all of these functions in case the ball is exactly on the edge of the element.
-    const leftIntersectionStrength = (ball, bounds) =>
-      ball.right >= bounds.left && ball.left <= bounds.left
-        ? 1 + ball.right - bounds.left
-        : 0;
-
-    const rightIntersectionStrength = (ball, bounds) =>
-      ball.left <= bounds.right && ball.right >= bounds.right
-        ? 1 + bounds.right - ball.left
-        : 0;
-
-    const aboveIntersectionStrength = (ball, bounds) =>
-      ball.bottom >= bounds.top && ball.top <= bounds.top
-        ? 1 + ball.bottom - bounds.top
-        : 0;
-
-    const belowIntersectionStrength = (ball, bounds) =>
-      ball.top <= bounds.bottom && ball.bottom >= bounds.bottom
-        ? 1 + bounds.bottom - ball.top
-        : 0;
-
-    const doesNotIntersect =
-      newBall.bottom < elt.top ||
-      newBall.top > elt.bottom ||
-      newBall.right < elt.left ||
-      newBall.left > elt.right;
-
-    if (doesNotIntersect) {
-      return { intersects: false };
-    }
-
-    const justIntersected = (checkIntersect) => {
-      return checkIntersect(newBall, elt) && !checkIntersect(oldBall, elt);
-    };
-
-    const strengthIfJustIntersected = (strengthFn) => {
-      const oldStrength = strengthFn(oldBall, elt);
-      const newStrength = strengthFn(newBall, elt);
-      return oldStrength === 0 && newStrength > 0 ? newStrength : 0;
-    };
-
-    const intersectsFrom = {
-      left: strengthIfJustIntersected(leftIntersectionStrength),
-      right: strengthIfJustIntersected(rightIntersectionStrength),
-      above: strengthIfJustIntersected(aboveIntersectionStrength),
-      below: strengthIfJustIntersected(belowIntersectionStrength),
-    };
-    return { intersects: true, intersectsFrom };
-  };
-
   function wrappedIntervalLoop(fn, label) {
     return () => {
       try {
