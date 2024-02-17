@@ -1,3 +1,4 @@
+"use strict";
 const getEvents = () => {
   return document
     .querySelector("div[role='main']")
@@ -204,6 +205,7 @@ const main = function () {
 
   const clamp = (min, max, value) => Math.min(Math.max(min, value), max);
 
+  // nroyalty: make sure this handles things in the right order
   function addTransform(elt, transform, key) {
     const prefix = `data-transform-`;
     elt.setAttribute(prefix + key, transform);
@@ -228,6 +230,127 @@ const main = function () {
     }
 
     addTransform(elt, `rotate(${angle}deg)`, "rotate");
+  }
+  const makeBox = (left, top, width, height) => ({
+    left,
+    right: left + width,
+    top,
+    bottom: top + height,
+  });
+
+  const makeBallBox = (left, top) => makeBox(left, top, BALL_SIZE, BALL_SIZE);
+  const makePaddleBox = (left, top) =>
+    makeBox(left, top, PADDLE_WIDTH, PADDLE_HEIGHT);
+
+  function circleOfBox(left, top) {
+    return { x: left + RADIUS, y: top + RADIUS, r: RADIUS };
+  }
+
+  function getClosestPointToCircle(circle, rect) {
+    const closestX =
+      circle.x < rect.left
+        ? rect.left
+        : circle.x > rect.right
+        ? rect.right
+        : circle.x;
+    const closestY =
+      circle.y < rect.top
+        ? rect.top
+        : circle.y > rect.bottom
+        ? rect.bottom
+        : circle.y;
+    return { x: closestX, y: closestY };
+  }
+
+  function getDistance(obj1, obj2) {
+    const dx = obj1.x - obj2.x;
+    const dy = obj1.y - obj2.y;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+
+  function circleCollidesWithRect(circle, closestPoint) {
+    const distance = getDistance(circle, closestPoint);
+    return distance < circle.r;
+  }
+
+  function detectCircularCollision(newBall, collisionRect) {
+    const newCircle = circleOfBox(newBall.left, newBall.top);
+    const closestPoint = getClosestPointToCircle(newCircle, collisionRect);
+    const collided = circleCollidesWithRect(newCircle, closestPoint);
+    return collided;
+  }
+
+  const ticksToCollision = (center, side, direction) =>
+    Math.abs((RADIUS - Math.abs(side - center)) / direction);
+
+  const getTicksToCollision = (circle, rect, direction) => {
+    const ticks = { x: Infinity, y: Infinity };
+    const relevantSideX = direction.x > 0 ? rect.left : rect.right;
+    const relevantSideY = direction.y > 0 ? rect.top : rect.bottom;
+    const canCollideX =
+      direction.x > 0 ? circle.x < rect.left : circle.right > rect.right;
+    const canCollideY =
+      direction.y > 0 ? circle.y < rect.top : circle.y > rect.bottom;
+    [
+      ["x", relevantSideX, direction.x, canCollideX],
+      ["y", relevantSideY, direction.y, canCollideY],
+    ].forEach(([axis, relevantSide, direction, canCollide]) => {
+      ticks[axis] = canCollide
+        ? ticksToCollision(circle[axis], relevantSide, direction)
+        : Infinity;
+    });
+    return ticks;
+  };
+
+  function handleCollision(newBall, collisionRect, direction, hasCollided) {
+    const newCircle = circleOfBox(newBall.left, newBall.top);
+    const ticksToCollision = getTicksToCollision(
+      newCircle,
+      collisionRect,
+      direction
+    );
+
+    const minTicks = Math.min(ticksToCollision.x, ticksToCollision.y);
+    const tryBounce = {
+      x: ticksToCollision.x !== Infinity,
+      y: ticksToCollision.y !== Infinity,
+    };
+
+    // nroyalty: need to figure out if this needs to account for bouncing
+    // on two different events and whether, in that case, we should bounce
+    // off the "minor" axis of the second event if the first event only
+    // triggers a bounce on the major axis
+    let didCollide = false;
+    if (tryBounce.x && !hasCollided.x) {
+      hasCollided.x = true;
+      newBall.left -= minTicks * direction.x;
+      direction.x *= -1;
+      didCollide = true;
+    }
+    if (tryBounce.y && !hasCollided.y) {
+      hasCollided.y = true;
+      newBall.top -= minTicks * direction.y;
+      direction.y *= -1;
+      didCollide = true;
+    }
+    return didCollide;
+  }
+
+  function handlePlayAreaCollision(
+    { nextLeft, nextTop },
+    direction,
+    hasCollided
+  ) {
+    if (nextLeft < 0 || nextLeft + BALL_SIZE > WIDTH) {
+      direction.x *= -1;
+      nextLeft = clamp(0, WIDTH - BALL_SIZE, nextLeft);
+      hasCollided.x = true;
+    }
+    if (nextTop < 0 || nextTop > HEIGHT - BALL_SIZE) {
+      direction.y *= -1;
+      nextTop = clamp(0, HEIGHT - BALL_SIZE, nextTop);
+      hasCollided.y = true;
+    }
   }
 
   function wrappedIntervalLoop(fn, label) {
@@ -285,201 +408,13 @@ const main = function () {
       };
     };
 
-    const ensureToLeftOf = (ballBox, left) => {
-      ballBox.left = left - BALL_SIZE;
-      ballBox.right = left;
-    };
-    const ensureToRightOf = (ballBox, right) => {
-      ballBox.right = right + BALL_SIZE;
-      ballBox.left = right;
-    };
-    const ensureAbove = (ballBox, top) => {
-      ballBox.top = top - BALL_SIZE;
-      ballBox.bottom = top;
-    };
-    const ensureBelow = (ballBox, bottom) => {
-      ballBox.bottom = bottom + BALL_SIZE;
-      ballBox.top = bottom;
-    };
-
-    const makeBox = (left, top, width, height) => ({
-      left,
-      right: left + width,
-      top,
-      bottom: top + height,
-    });
-
-    const makeBallBox = (left, top) => makeBox(left, top, BALL_SIZE, BALL_SIZE);
-    const makePaddleBox = (left, top) =>
-      makeBox(left, top, PADDLE_WIDTH, PADDLE_HEIGHT);
-
-    function circleOfBox(left, top) {
-      return { x: left + RADIUS, y: top + RADIUS, r: RADIUS };
-    }
-
-    function getClosestPointToCircle(circle, rect) {
-      const closestX =
-        circle.x < rect.left
-          ? rect.left
-          : circle.x > rect.right
-          ? rect.right
-          : circle.x;
-      const closestY =
-        circle.y < rect.top
-          ? rect.top
-          : circle.y > rect.bottom
-          ? rect.bottom
-          : circle.y;
-      return { x: closestX, y: closestY };
-    }
-
-    function getDistance(obj1, obj2) {
-      const dx = obj1.x - obj2.x;
-      const dy = obj1.y - obj2.y;
-      return Math.sqrt(dx * dx + dy * dy);
-    }
-
-    function circleCollidesWithRect(circle, closestPoint) {
-      const distance = getDistance(circle, closestPoint);
-      return distance < circle.r;
-    }
-
-    function detectCircularCollision(newBall, collisionRect) {
-      const newCircle = circleOfBox(newBall.left, newBall.top);
-      const closestPoint = getClosestPointToCircle(newCircle, collisionRect);
-      const collided = circleCollidesWithRect(newCircle, closestPoint);
-      return collided;
-    }
-
-    function handleCircularCollisionNew(
-      newBall,
-      collisionRect,
-      direction,
-      hasCollided
-    ) {
-      const newCircle = circleOfBox(newBall.left, newBall.top);
-
-      const dHorizontal = direction.x > 0 ? "right" : "left";
-      const dVertical = direction.y > 0 ? "down" : "up";
-
-      let ticksToCollisionX = Infinity;
-      let ticksToCollisionY = Infinity;
-
-      if (dHorizontal === "right") {
-        relevantSide = collisionRect.left;
-        if (newCircle.x < collisionRect.left) {
-          ticksToCollisionX = Math.abs(
-            (RADIUS - Math.abs(collisionRect.left - newCircle.x)) / direction.x
-          );
-        }
-      } else {
-        relevantSide = collisionRect.right;
-        if (newCircle.x > collisionRect.right) {
-          ticksToCollisionX = Math.abs(
-            (RADIUS - Math.abs(collisionRect.right - newCircle.x)) / direction.x
-          );
-        }
-      }
-      if (dVertical === "down") {
-        relevantSide = collisionRect.top;
-        if (newCircle.y < collisionRect.top) {
-          ticksToCollisionY = Math.abs(
-            (RADIUS - Math.abs(collisionRect.top - newCircle.y)) / direction.y
-          );
-        }
-      } else {
-        relevantSide = collisionRect.bottom;
-        if (newCircle.y > collisionRect.bottom) {
-          ticksToCollisionY = Math.abs(
-            (RADIUS - Math.abs(collisionRect.bottom - newCircle.y)) /
-              direction.y
-          );
-        }
-      }
-
-      didCollide = false;
-
-      let movedCircleX;
-      let movedCircleY;
-      let tryBounceX = "none";
-      let tryBounceY = "none";
-      let ticksForMove;
-      if (ticksToCollisionX < ticksToCollisionY) {
-        movedCircleX = newCircle.x - ticksToCollisionX * direction.x;
-        movedCircleY = newCircle.y - ticksToCollisionX * direction.y;
-        ticksForMove = ticksToCollisionX;
-        tryBounceX = "with-move";
-        tryBounceY = ticksToCollisionY === Infinity ? "none" : "without-move";
-      } else {
-        movedCircleX = newCircle.x - ticksToCollisionY * direction.x;
-        movedCircleY = newCircle.y - ticksToCollisionY * direction.y;
-        ticksForMove = ticksToCollisionY;
-        tryBounceY = "with-move";
-        tryBounceX = ticksToCollisionX === Infinity ? "none" : "without-move";
-      }
-
-      console.log(
-        `TICKS TO COLLISION: X: ${ticksToCollisionX} Y: ${ticksToCollisionY}`
-      );
-      console.log(`DIRECTIONS: X: ${direction.x} Y: ${direction.y}`);
-      console.log(
-        `CIRCLE: X: ${newCircle.x} Y: ${newCircle.y} -> X: ${movedCircleX} Y: ${movedCircleY}`
-      );
-      console.log(
-        `RECT: L: ${collisionRect.left} T: ${collisionRect.top} -> R: ${collisionRect.right} B: ${collisionRect.bottom}`
-      );
-
-      if (tryBounceX !== "none" && !hasCollided.x) {
-        hasCollided.x = true;
-        didCollide = true;
-
-        newBall.left -= ticksForMove * direction.x;
-        direction.x *= -1;
-        if (tryBounceX === "with-move") {
-        }
-      }
-      if (tryBounceY !== "none" && !hasCollided.y) {
-        hasCollided.y = true;
-        didCollide = true;
-
-        newBall.top -= ticksForMove * direction.y;
-        direction.y *= -1;
-        if (tryBounceY === "with-move") {
-        }
-      }
-      return didCollide;
-    }
-
     function loop() {
       const tickId = Math.floor(Math.random() * 1000000);
       let nextLeft = ballLeft + BASE_SPEED * direction.x;
       let nextTop = ballTop + BASE_SPEED * direction.y;
       let hasCollided = { x: false, y: false };
 
-      const movingLeft = direction.x < 0;
-      const movingRight = direction.x > 0;
-      const movingUp = direction.y < 0;
-      const movingDown = direction.y > 0;
-
-      if (nextLeft < 0) {
-        direction.x *= -1;
-        nextLeft = 0;
-        hasCollided.x = true;
-      } else if (nextLeft + BALL_SIZE > WIDTH) {
-        direction.x *= -1;
-        nextLeft = WIDTH - BALL_SIZE;
-        hasCollided.x = true;
-      }
-      if (nextTop < 0) {
-        direction.y *= -1;
-        nextTop = 0;
-        hasCollided.y = true;
-      } else if (nextTop > HEIGHT - BALL_SIZE) {
-        direction.y *= -1;
-        nextTop = HEIGHT - BALL_SIZE;
-        hasCollided.y = true;
-      }
-
+      handlePlayAreaCollision({ nextLeft, nextTop }, direction, hasCollided);
       const newBall = makeBallBox(nextLeft, nextTop);
 
       function collideWithEvent(event, doClick) {
@@ -492,7 +427,7 @@ const main = function () {
 
       if (collidesWithPaddle) {
         console.log(`[${tickId}] PADDLE COLLISION DETECTED`);
-        const bounced = handleCircularCollisionNew(
+        const bounced = handleCollision(
           newBall,
           paddleBox,
           direction,
@@ -512,23 +447,15 @@ const main = function () {
         const eventBounds = translatedBounds(event);
         const collided = detectCircularCollision(newBall, eventBounds);
         if (collided) {
-          console.log(
-            `[${tickId}] CIRCULAR COLLISION DETECTED: ${event.textContent}`
-          );
+          console.log(`[${tickId}] COLLISION DETECTED: ${event.textContent}`);
           collideWithEvent(event, doClick);
-          const bounced = handleCircularCollisionNew(
+          const bounced = handleCollision(
             newBall,
             eventBounds,
             direction,
             hasCollided
           );
-          if (bounced) {
-            console.log(`[${tickId}] BOUNCED OFF EVENT: ${event.textContent}`);
-          } else {
-            console.log(
-              `[${tickId}] SKIPPED BOUNCE OFF EVENT: ${event.textContent}`
-            );
-          }
+          console.log(`[${tickId}] BOUNCE? ${bounced}: ${event.textContent}`);
         }
       });
 
