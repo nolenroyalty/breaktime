@@ -146,7 +146,6 @@ const main = function () {
   const BASE_SPEED = 7.5;
   const STOP_AFTER_THIS_MANY_TICKS = 2000;
   const FADE_IN_TIME = 1000;
-  const RELATIVE_PADDLE_BOUNCES = false;
 
   const mainElt = document.querySelector("div[role='main']");
   const grid = mainElt.querySelector("div[role='grid']");
@@ -288,7 +287,7 @@ const main = function () {
     const relevantSideX = direction.x > 0 ? rect.left : rect.right;
     const relevantSideY = direction.y > 0 ? rect.top : rect.bottom;
     const canCollideX =
-      direction.x > 0 ? circle.x < rect.left : circle.right > rect.right;
+      direction.x > 0 ? circle.x < rect.left : circle.x > rect.right;
     const canCollideY =
       direction.y > 0 ? circle.y < rect.top : circle.y > rect.bottom;
     [
