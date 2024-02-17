@@ -87,7 +87,7 @@ const css = `
   background-color: var(--color-black);
   border-radius: 50%; 
   will-change: transform;
-  transition: transform 0.1s linear, opacity 1s ease;
+  transition: transform var(--transform-speed) linear, opacity 1s ease;
   z-index: 1001;
 }
 
@@ -140,7 +140,7 @@ const main = function () {
   style.appendChild(document.createTextNode(css));
   document.head.appendChild(style);
 
-  const BALL_SIZE = 50;
+  const BALL_SIZE = 30;
   const RADIUS = BALL_SIZE / 2;
   const TICK_TIME = 50;
   const BASE_SPEED = 7.5;
@@ -187,7 +187,12 @@ const main = function () {
 
   const ball = createElt(
     "_ball",
-    { "--top": TOP, "--left": LEFT, "--size": BALL_SIZE },
+    {
+      "--top": TOP,
+      "--left": LEFT,
+      "--size": BALL_SIZE,
+      "--transform-speed": `${TICK_TIME * 1.1}ms`,
+    },
     ["ball", "transparent"]
   );
 
@@ -340,9 +345,13 @@ const main = function () {
     direction,
     hasCollided
   ) {
-    if (nextLeft < 0 || nextLeft + BALL_SIZE > WIDTH) {
-      direction.x *= -1;
-      nextLeft = clamp(0, WIDTH - BALL_SIZE, nextLeft);
+    if (nextLeft < 0) {
+      direction.x = Math.abs(direction.x);
+      nextLeft = 0;
+      hasCollided.x = true;
+    } else if (nextLeft + BALL_SIZE > WIDTH) {
+      direction.x = -Math.abs(direction.x);
+      nextLeft = WIDTH - BALL_SIZE;
       hasCollided.x = true;
     }
     if (nextTop < 0 || nextTop > HEIGHT - BALL_SIZE) {
