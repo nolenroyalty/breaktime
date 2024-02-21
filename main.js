@@ -140,7 +140,7 @@ const main = function () {
   style.appendChild(document.createTextNode(css));
   document.head.appendChild(style);
 
-  const BALL_SIZE = 30;
+  const BALL_SIZE = 25;
   const RADIUS = BALL_SIZE / 2;
   const TICK_TIME = 50;
   const BASE_SPEED = 7.5;
