@@ -361,6 +361,37 @@ const main = function () {
     }
   }
 
+  function magnitude(v) {
+    return Math.sqrt(v.x * v.x + v.y * v.y);
+  }
+
+  function normalize(v) {
+    const mag = magnitude(v);
+    return { x: v.x / mag, y: v.y / mag };
+  }
+
+  function dotProduct(v1, v2) {
+    v1 = normalize(v1);
+    v2 = normalize(v2);
+    return v1.x * v2.x + v1.y * v2.y;
+  }
+
+  function truncateDigits(v) {
+    const amount = 100;
+    return {
+      x: Math.round(v.x * amount) / amount,
+      y: Math.round(v.y * amount) / amount,
+    };
+  }
+
+  function subtractVectors(v1, v2) {
+    return { x: v1.x - v2.x, y: v1.y - v2.y };
+  }
+
+  function multiplyVector(v, scalar) {
+    return { x: v.x * scalar, y: v.y * scalar };
+  }
+
   function wrappedIntervalLoop(fn, label) {
     return () => {
       try {
@@ -405,6 +436,7 @@ const main = function () {
 
   function mainLoop() {
     const direction = { x: 1, y: 1 };
+    let ticksUntilWeCanBounce = 0;
 
     const translatedBounds = (obj) => {
       const bounds = obj.getBoundingClientRect();
@@ -418,6 +450,7 @@ const main = function () {
 
     function loop() {
       const tickId = Math.floor(Math.random() * 1000000);
+      ticksUntilWeCanBounce = Math.max(0, ticksUntilWeCanBounce - 1);
       let nextLeft = ballLeft + BASE_SPEED * direction.x;
       let nextTop = ballTop + BASE_SPEED * direction.y;
       let hasCollided = { x: false, y: false };
@@ -433,17 +466,52 @@ const main = function () {
       const paddleBox = makePaddleBox(paddleLeft, paddleTop);
       const collidesWithPaddle = detectCircularCollision(newBall, paddleBox);
 
-      if (collidesWithPaddle) {
+      if (collidesWithPaddle && ticksUntilWeCanBounce === 0) {
+        ticksUntilWeCanBounce = 10;
         console.log(`[${tickId}] PADDLE COLLISION DETECTED`);
-        const bounced = handleCollision(
-          newBall,
-          paddleBox,
-          direction,
-          hasCollided
-        );
-        if (!bounced) {
-          console.log(`[${tickId}] BUG: SKIPPED BOUNCE OFF PADDLE`);
+        const paddleCenter = paddleLeft + PADDLE_WIDTH / 2;
+        const ballCenter = newBall.left + BALL_SIZE / 2;
+        const leftThird = paddleLeft + PADDLE_WIDTH / 3;
+        const rightThird = paddleLeft + (PADDLE_WIDTH / 3) * 2;
+        let reflectionVector = { x: 0, y: -1 };
+        if (ballCenter < leftThird) {
+          const distanceFromLeft = Math.max(0, ballCenter - paddleLeft);
+          const scaledToPaddle = distanceFromLeft / (PADDLE_WIDTH / 3);
+          const x = -8 * (1 - scaledToPaddle);
+          reflectionVector = { x, y: -8 };
+        } else if (ballCenter > rightThird) {
+          const distanceFromTheRight = Math.min(
+            PADDLE_WIDTH / 3,
+            ballCenter - rightThird
+          );
+          const scaledToPaddle = distanceFromTheRight / (PADDLE_WIDTH / 3);
+          const x = 8 * scaledToPaddle;
+          reflectionVector = { x, y: -8 };
         }
+        const dot = dotProduct(reflectionVector, direction);
+        const toSubtract = multiplyVector(reflectionVector, 2 * dot);
+        let newDirection = subtractVectors(direction, toSubtract);
+        console.log(`[${tickId}] OLD DIRECTION: ${JSON.stringify(direction)}`);
+        newDirection = multiplyVector(
+          normalize(newDirection),
+          magnitude({ x: 1, y: 1 })
+        );
+        newDirection = truncateDigits(newDirection);
+        console.log(
+          `[${tickId}] NEW DIRECTION: ${JSON.stringify(newDirection)}`
+        );
+        direction.x = newDirection.x;
+        direction.y = newDirection.y;
+
+        // const bounced = handleCollision(
+        //   newBall,
+        //   paddleBox,
+        //   direction,
+        //   hasCollided
+        // );
+        // if (!bounced) {
+        //   console.log(`[${tickId}] BUG: SKIPPED BOUNCE OFF PADDLE`);
+        // }
       }
 
       let doClick = true;
