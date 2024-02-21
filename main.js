@@ -502,16 +502,6 @@ const main = function () {
         );
         direction.x = newDirection.x;
         direction.y = newDirection.y;
-
-        // const bounced = handleCollision(
-        //   newBall,
-        //   paddleBox,
-        //   direction,
-        //   hasCollided
-        // );
-        // if (!bounced) {
-        //   console.log(`[${tickId}] BUG: SKIPPED BOUNCE OFF PADDLE`);
-        // }
       }
 
       let doClick = true;
