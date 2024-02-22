@@ -106,6 +106,7 @@ const css = `
 
 .fading-trail {
   animation: fading-trail 1s ease-out both;
+  filter: blur(4px);
 }
 
 /* .ball::after {
