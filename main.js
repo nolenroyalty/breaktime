@@ -87,6 +87,7 @@ const css = `
   pointer-events: none;
   transition: opacity 1.5s ease;
   animation: revealClipPath 1s ease both;
+  will-change: transform, clip-path;
 }
 
 .ball {
