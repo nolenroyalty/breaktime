@@ -375,7 +375,9 @@ const main = function () {
     }
   }
 
-  /* nroyalty: there are still some real bugs here :/ */
+  /* nroyalty: there are still some real bugs here :/
+  nroyalty: remove math.abs hack
+   */
   function handlePaddleCollision(
     newBall,
     paddleLeft,
@@ -413,7 +415,7 @@ const main = function () {
     newDirection = truncateDigits(newDirection);
     console.log(`[${tickId}] NEW DIRECTION: ${JSON.stringify(newDirection)}`);
     direction.x = newDirection.x;
-    direction.y = newDirection.y;
+    direction.y = -1 * Math.abs(newDirection.y);
     hasCollided.y = true;
     hasCollided.x = true;
   }
@@ -422,8 +424,6 @@ const main = function () {
     const eventWidth = bounds.right - bounds.left;
     const eventHeight = bounds.bottom - bounds.top;
 
-    // const width = (eventWidth / 10) * (Math.random() + 0.5);
-    // const height = (eventHeight / 3) * (Math.random() + 0.5);
     const baseWidth = eventWidth / 10;
     const baseHeight = eventHeight / 3;
     const width = Math.floor(baseWidth * (0.9 + Math.random() * 0.2));
@@ -538,6 +538,41 @@ const main = function () {
     };
   }
 
+  function makeScreenShake() {
+    const target = document.querySelector("body");
+    const duration = 250;
+    let magnitude = 7.5;
+    let startTime = null;
+    const isShaking = false;
+
+    function shake(currentTime) {
+      const elapsedTime = currentTime - startTime;
+      const remainingTime = duration - elapsedTime;
+      if (remainingTime > 0) {
+        const randomX = (Math.random() - 0.5) * magnitude;
+        const randomY = (Math.random() - 0.5) * magnitude;
+        target.style.transform = `translate(${randomX}px, ${randomY}px)`;
+        requestAnimationFrame(shake);
+      } else {
+        target.style.transform = "translate(0px, 0px)";
+        magnitude = 5;
+        isShaking = false;
+      }
+    }
+
+    function startOrContinueShaking() {
+      startTime = performance.now();
+      if (isShaking) {
+        magnitude += 5;
+      } else {
+        requestAnimationFrame(shake);
+      }
+    }
+    return startOrContinueShaking;
+  }
+
+  const screenShake = makeScreenShake();
+
   function paddleLoop() {
     const keysPressed = { ArrowLeft: false, ArrowRight: false };
     document.addEventListener("keydown", (e) => {
@@ -650,7 +685,7 @@ const main = function () {
 
           collideWithEvent(event, doClick);
           addParticlesForEvent(event, eventBounds);
-
+          screenShake();
           const bounced = handleCollision(
             newBall,
             eventBounds,
