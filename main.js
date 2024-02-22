@@ -109,25 +109,6 @@ const css = `
   filter: blur(4px);
 }
 
-/* .ball::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  width: 100px;
-  height: 50px;
-  z-index: -1;
-  transform: rotate(180deg) translateX(65px);
-  clip-path: polygon(0% 10%, 100% 30%, 100% 70%, 0% 90%);
-  background: linear-gradient(270deg, rgba(123,183,217,0) 0%,
-                                     rgba(167,204,224,0.72) 50%, 
-                                     rgba(225,237,244,0.2) 65%,
-                                     rgba(225,237,244,0) 80%
-                                     );
-} */
-
 .paddle {
   position: fixed;
   left: calc(var(--left)* 1px);
@@ -577,7 +558,6 @@ const main = function () {
       });
 
       translate(ball, newBall.left, newBall.top);
-      rotateForVector(ball, direction.x, direction.y);
       addBallTrail(ballLeft, ballTop);
       ballLeft = newBall.left;
       ballTop = newBall.top;
