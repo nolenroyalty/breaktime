@@ -63,6 +63,7 @@ const dismissBigModal = () => {
 const css = `
 :root {
   --color-black: hsl(235deg 15% 15%);
+  --color-grey: hsl(235deg 5% 35%);
   --color-playarea: hsl(235deg 15% 67%);
 }
 
@@ -84,7 +85,7 @@ const css = `
   top: calc(var(--top)* 1px);
   width: calc(var(--size)* 1px);
   height: calc(var(--size)* 1px);
-  background-color: var(--color-black);
+  background-color: var(--color-grey);
   border-radius: 50%; 
   will-change: transform;
   transition: transform var(--transform-speed) linear, opacity 1s ease;
@@ -116,7 +117,7 @@ const css = `
   top: calc(var(--top)* 1px);
   width: calc(var(--width)* 1px);
   height: calc(var(--height)* 1px);
-  background-color: var(--color-black);
+  background-color: var(--color-grey);
   z-index: 1002;
   transition: transform 0.05s linear, opacity 1s ease;
 }
