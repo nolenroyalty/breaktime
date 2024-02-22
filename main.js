@@ -361,6 +361,48 @@ const main = function () {
     }
   }
 
+  function handlePaddleCollision(
+    newBall,
+    paddleLeft,
+    direction,
+    hasCollided,
+    tickId
+  ) {
+    const paddleCenter = paddleLeft + PADDLE_WIDTH / 2;
+    const ballCenter = newBall.left + BALL_SIZE / 2;
+    const leftThird = paddleLeft + PADDLE_WIDTH / 3;
+    const rightThird = paddleLeft + (PADDLE_WIDTH / 3) * 2;
+    let reflectionVector = { x: 0, y: -1 };
+    if (ballCenter < leftThird) {
+      const distanceFromLeft = Math.max(0, ballCenter - paddleLeft);
+      const scaledToPaddle = distanceFromLeft / (PADDLE_WIDTH / 3);
+      const x = -8 * (1 - scaledToPaddle);
+      reflectionVector = { x, y: -8 };
+    } else if (ballCenter > rightThird) {
+      const distanceFromTheRight = Math.min(
+        PADDLE_WIDTH / 3,
+        ballCenter - rightThird
+      );
+      const scaledToPaddle = distanceFromTheRight / (PADDLE_WIDTH / 3);
+      const x = 8 * scaledToPaddle;
+      reflectionVector = { x, y: -8 };
+    }
+    const dot = dotProduct(reflectionVector, direction);
+    const toSubtract = multiplyVector(reflectionVector, 2 * dot);
+    let newDirection = subtractVectors(direction, toSubtract);
+    console.log(`[${tickId}] OLD DIRECTION: ${JSON.stringify(direction)}`);
+    newDirection = multiplyVector(
+      normalize(newDirection),
+      magnitude({ x: 1, y: 1 })
+    );
+    newDirection = truncateDigits(newDirection);
+    console.log(`[${tickId}] NEW DIRECTION: ${JSON.stringify(newDirection)}`);
+    direction.x = newDirection.x;
+    direction.y = newDirection.y;
+    hasCollided.y = true;
+    hasCollided.x = true;
+  }
+
   function magnitude(v) {
     return Math.sqrt(v.x * v.x + v.y * v.y);
   }
@@ -469,39 +511,13 @@ const main = function () {
       if (collidesWithPaddle && ticksUntilWeCanBounce === 0) {
         ticksUntilWeCanBounce = 10;
         console.log(`[${tickId}] PADDLE COLLISION DETECTED`);
-        const paddleCenter = paddleLeft + PADDLE_WIDTH / 2;
-        const ballCenter = newBall.left + BALL_SIZE / 2;
-        const leftThird = paddleLeft + PADDLE_WIDTH / 3;
-        const rightThird = paddleLeft + (PADDLE_WIDTH / 3) * 2;
-        let reflectionVector = { x: 0, y: -1 };
-        if (ballCenter < leftThird) {
-          const distanceFromLeft = Math.max(0, ballCenter - paddleLeft);
-          const scaledToPaddle = distanceFromLeft / (PADDLE_WIDTH / 3);
-          const x = -8 * (1 - scaledToPaddle);
-          reflectionVector = { x, y: -8 };
-        } else if (ballCenter > rightThird) {
-          const distanceFromTheRight = Math.min(
-            PADDLE_WIDTH / 3,
-            ballCenter - rightThird
-          );
-          const scaledToPaddle = distanceFromTheRight / (PADDLE_WIDTH / 3);
-          const x = 8 * scaledToPaddle;
-          reflectionVector = { x, y: -8 };
-        }
-        const dot = dotProduct(reflectionVector, direction);
-        const toSubtract = multiplyVector(reflectionVector, 2 * dot);
-        let newDirection = subtractVectors(direction, toSubtract);
-        console.log(`[${tickId}] OLD DIRECTION: ${JSON.stringify(direction)}`);
-        newDirection = multiplyVector(
-          normalize(newDirection),
-          magnitude({ x: 1, y: 1 })
+        handlePaddleCollision(
+          newBall,
+          paddleLeft,
+          direction,
+          hasCollided,
+          tickId
         );
-        newDirection = truncateDigits(newDirection);
-        console.log(
-          `[${tickId}] NEW DIRECTION: ${JSON.stringify(newDirection)}`
-        );
-        direction.x = newDirection.x;
-        direction.y = newDirection.y;
       }
 
       let doClick = true;
