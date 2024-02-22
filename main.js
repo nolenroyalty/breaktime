@@ -67,6 +67,15 @@ const css = `
   --color-playarea: hsl(235deg 15% 67%);
 }
 
+@keyframes revealClipPath {
+  from {
+    clip-path: polygon(-10% -10%, 110% -10%, 110% -10%, -10% -10%);
+  }
+  to {
+    clip-path: polygon(-10% -10%, 110% -10%, 110% 110%, -10% 110%);
+  }
+}
+
 .play-area {
   position: fixed;
   top: calc(var(--top) * 1px);
@@ -76,7 +85,8 @@ const css = `
   background-color: var(--color-playarea);
   outline: 2px dashed black;
   pointer-events: none;
-  transition: opacity 1s ease;
+  transition: opacity 1.5s ease;
+  animation: revealClipPath 1s ease both;
 }
 
 .ball {
@@ -725,10 +735,17 @@ const main = function () {
     paddle.classList.remove("transparent");
   }, 1);
 
-  const startGame = setTimeout(() => {
-    mainInterval = setInterval(mainLoop(), TICK_TIME);
-    paddleInterval = setInterval(paddleLoop(), 1000 / 60);
-  }, FADE_IN_TIME + 1);
+  paddleInterval = setInterval(paddleLoop(), 1000 / 60);
+
+  let started = false;
+  const listener = document.addEventListener("keydown", (e) => {
+    if (e.code === "Space" && !started) {
+      console.log("STARTING");
+      started = true;
+      mainInterval = setInterval(mainLoop(), TICK_TIME);
+      document.removeEventListener("keydown", listener);
+    }
+  });
 };
 
 function resetEvents() {
