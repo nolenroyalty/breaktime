@@ -132,6 +132,20 @@ const css = `
 .brickEvent {
   border-radius: 0;
 }
+
+particle {
+  border-radius: 2px;
+  width: calc(15px * var(--size-mult));
+  height: calc(15px * var(--size-mult));
+  /* nroyalty: randomize color? */
+  background-color: var(--color);
+  position: fixed;
+  z-index: 1000;
+  pointer-events: none;
+  will-change: transform, opacity;
+  left: 0;
+  top: 0;
+}
 `;
 
 const main = function () {
@@ -166,9 +180,9 @@ const main = function () {
   let ballLeft = WIDTH / 2 - BALL_SIZE / 2;
   let ballTop = HEIGHT - 100;
 
-  function createElt(id, style = {}, classList = []) {
+  function createElt(id, style = {}, classList = [], kind = "div") {
     document.querySelector(`#${id}`)?.remove();
-    const elt = document.createElement("div");
+    const elt = document.createElement(kind);
     elt.id = id;
     elt.classList.add(...classList);
     Object.keys(style).forEach((key) => {
@@ -402,6 +416,67 @@ const main = function () {
     hasCollided.x = true;
   }
 
+  function createParticle(bounds, color) {
+    const width = bounds.right - bounds.left;
+    const height = bounds.bottom - bounds.top;
+    const sizeMult = Math.floor((Math.random() + 0.5) * 10) / 10;
+    const startingX = bounds.left + Math.floor(Math.random() * width);
+    const startingY = bounds.top + Math.floor(Math.random() * height);
+    const distanceToTravel = Math.floor(Math.random() * 100 + 50);
+
+    const centerX = bounds.left + width / 2;
+    const centerY = bounds.top + height / 2;
+
+    const vector = normalize(
+      subtractVectors(
+        { x: centerX, y: centerY },
+        { x: startingX, y: startingY }
+      )
+    );
+
+    const randX = 1 + Math.random() * 0.2 - 0.1;
+    const randY = 1 + Math.random() * 0.2 - 0.1;
+    vector.x *= randX;
+    vector.y *= randY;
+
+    const particle = createElt(
+      `particle-${Math.floor(Math.random() * 1000000)}`,
+      {
+        "--size-mult": sizeMult,
+        "--color": color,
+      },
+      [],
+      "particle"
+    );
+
+    const fromX = startingX + LEFT;
+    const fromY = startingY + TOP;
+    const toX = startingX + vector.x * distanceToTravel + LEFT;
+    const toY = startingY + vector.y * distanceToTravel + TOP;
+    console.log(`FROM: ${fromX}, ${fromY} TO: ${toX}, ${toY}`);
+    console.log(`VECTOR: ${JSON.stringify(vector)}`);
+    console.log(`CENTER: ${centerX}, ${centerY}`);
+    console.log(`-----`);
+    const animation = particle.animate(
+      [
+        { transform: `translate(${fromX}px, ${fromY}px)`, opacity: 1 },
+        {
+          transform: `translate(${toX}px, ${toY}px)`,
+          opacity: 0,
+        },
+      ],
+      {
+        duration: 500 + Math.random() * 500,
+        // easing: "ease-in-out",
+        // delay: Math.random() * 75,
+      }
+    );
+
+    animation.onfinish = () => {
+      particle.remove();
+    };
+  }
+
   function magnitude(v) {
     return Math.sqrt(v.x * v.x + v.y * v.y);
   }
@@ -546,7 +621,12 @@ const main = function () {
         const collided = detectCircularCollision(newBall, eventBounds);
         if (collided) {
           console.log(`[${tickId}] COLLISION DETECTED: ${event.textContent}`);
+          const computedStyle = window.getComputedStyle(event);
+          const color = computedStyle.backgroundColor || "slategrey";
           collideWithEvent(event, doClick);
+          for (let i = 0; i < 30; i++) {
+            createParticle(eventBounds, color);
+          }
           const bounced = handleCollision(
             newBall,
             eventBounds,
@@ -558,7 +638,7 @@ const main = function () {
       });
 
       translate(ball, newBall.left, newBall.top);
-      addBallTrail(ballLeft, ballTop);
+      // addBallTrail(ballLeft, ballTop);
       ballLeft = newBall.left;
       ballTop = newBall.top;
     }
