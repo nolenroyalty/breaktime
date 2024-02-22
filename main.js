@@ -125,7 +125,7 @@ const css = `
 }
 
 .faded {
-  opacity: 0.3;
+  opacity: 0.1;
   transition: opacity 0.5s ease, background-color 0.5s ease;
 }
 
@@ -135,8 +135,8 @@ const css = `
 
 particle {
   border-radius: 2px;
-  width: calc(15px * var(--size-mult));
-  height: calc(15px * var(--size-mult));
+  width: var(--width);
+  height: var(--height);
   /* nroyalty: randomize color? */
   background-color: var(--color);
   position: fixed;
@@ -374,6 +374,7 @@ const main = function () {
     }
   }
 
+  /* nroyalty: there are still some real bugs here :/ */
   function handlePaddleCollision(
     newBall,
     paddleLeft,
@@ -416,21 +417,28 @@ const main = function () {
     hasCollided.x = true;
   }
 
-  function createParticle(bounds, color) {
-    const width = bounds.right - bounds.left;
-    const height = bounds.bottom - bounds.top;
-    const sizeMult = Math.floor((Math.random() + 0.5) * 10) / 10;
-    const startingX = bounds.left + Math.floor(Math.random() * width);
-    const startingY = bounds.top + Math.floor(Math.random() * height);
-    const distanceToTravel = Math.floor(Math.random() * 100 + 50);
+  function createParticle(xIndex, yIndex, bounds, color) {
+    const eventWidth = bounds.right - bounds.left;
+    const eventHeight = bounds.bottom - bounds.top;
 
-    const centerX = bounds.left + width / 2;
-    const centerY = bounds.top + height / 2;
+    // const width = (eventWidth / 10) * (Math.random() + 0.5);
+    // const height = (eventHeight / 3) * (Math.random() + 0.5);
+    const baseWidth = eventWidth / 10;
+    const baseHeight = eventHeight / 3;
+    const width = Math.floor(baseWidth * (0.9 + Math.random() * 0.2));
+    const height = Math.floor(baseHeight * (0.9 + Math.random() * 0.2));
+
+    const startingX = bounds.left + baseWidth * xIndex;
+    const startingY = bounds.top + baseHeight * yIndex;
+    const distanceToTravel = Math.floor(Math.random() * 75 + 25);
+
+    const centerX = bounds.left + eventWidth / 2;
+    const centerY = bounds.top + eventHeight / 2;
 
     const vector = normalize(
       subtractVectors(
-        { x: centerX, y: centerY },
-        { x: startingX, y: startingY }
+        { x: startingX, y: startingY },
+        { x: centerX, y: centerY }
       )
     );
 
@@ -442,7 +450,8 @@ const main = function () {
     const particle = createElt(
       `particle-${Math.floor(Math.random() * 1000000)}`,
       {
-        "--size-mult": sizeMult,
+        "--width": `${width}px`,
+        "--height": `${height}px`,
         "--color": color,
       },
       [],
@@ -453,28 +462,38 @@ const main = function () {
     const fromY = startingY + TOP;
     const toX = startingX + vector.x * distanceToTravel + LEFT;
     const toY = startingY + vector.y * distanceToTravel + TOP;
-    console.log(`FROM: ${fromX}, ${fromY} TO: ${toX}, ${toY}`);
-    console.log(`VECTOR: ${JSON.stringify(vector)}`);
-    console.log(`CENTER: ${centerX}, ${centerY}`);
-    console.log(`-----`);
+    const rotation = Math.random() * 360 + "deg";
     const animation = particle.animate(
       [
-        { transform: `translate(${fromX}px, ${fromY}px)`, opacity: 1 },
         {
-          transform: `translate(${toX}px, ${toY}px)`,
+          transform: `translate(${fromX}px, ${fromY}px) rotate(0deg)`,
+          opacity: 1,
+        },
+        {
+          transform: `translate(${toX}px, ${toY}px) rotate(${rotation})`,
           opacity: 0,
         },
       ],
       {
-        duration: 500 + Math.random() * 500,
-        // easing: "ease-in-out",
-        // delay: Math.random() * 75,
+        duration: 250 + Math.random() * 500,
+        easing: "ease-out",
+        delay: Math.random() * 150,
       }
     );
 
     animation.onfinish = () => {
       particle.remove();
     };
+  }
+
+  function addParticlesForEvent(event, bounds) {
+    const computedStyle = window.getComputedStyle(event);
+    const color = computedStyle.backgroundColor || "slategrey";
+    for (let y = 0; y < 3; y++) {
+      for (let x = 0; x < 10; x++) {
+        createParticle(x, y, bounds, color);
+      }
+    }
   }
 
   function magnitude(v) {
@@ -600,15 +619,21 @@ const main = function () {
       const collidesWithPaddle = detectCircularCollision(newBall, paddleBox);
 
       if (collidesWithPaddle && ticksUntilWeCanBounce === 0) {
-        ticksUntilWeCanBounce = 10;
-        console.log(`[${tickId}] PADDLE COLLISION DETECTED`);
-        handlePaddleCollision(
-          newBall,
-          paddleLeft,
-          direction,
-          hasCollided,
-          tickId
-        );
+        if (direction.y < 0) {
+          console.log(
+            `[${tickId}] POTENTIAL BUG: COLLIDED WITH PADDLE WHILE MOVING UP`
+          );
+        } else {
+          ticksUntilWeCanBounce = 10;
+          console.log(`[${tickId}] PADDLE COLLISION DETECTED`);
+          handlePaddleCollision(
+            newBall,
+            paddleLeft,
+            direction,
+            hasCollided,
+            tickId
+          );
+        }
       }
 
       let doClick = true;
@@ -621,12 +646,10 @@ const main = function () {
         const collided = detectCircularCollision(newBall, eventBounds);
         if (collided) {
           console.log(`[${tickId}] COLLISION DETECTED: ${event.textContent}`);
-          const computedStyle = window.getComputedStyle(event);
-          const color = computedStyle.backgroundColor || "slategrey";
+
           collideWithEvent(event, doClick);
-          for (let i = 0; i < 30; i++) {
-            createParticle(eventBounds, color);
-          }
+          addParticlesForEvent(event, eventBounds);
+
           const bounced = handleCollision(
             newBall,
             eventBounds,
