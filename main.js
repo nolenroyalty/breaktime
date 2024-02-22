@@ -92,6 +92,22 @@ const css = `
   z-index: 1001;
 }
 
+@keyframes fading-trail {
+  0% {
+    opacity: 0.75;
+    transform: scale(0.9);
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+}
+
+.fading-trail {
+  animation: fading-trail 1s ease-out both;
+}
+
 /* .ball::after {
   content: "";
   position: absolute;
@@ -477,6 +493,23 @@ const main = function () {
     return wrappedIntervalLoop(loop, "PADDLE");
   }
 
+  function addBallTrail(left, top) {
+    const id = Math.floor(Math.random() * 1000000);
+    const trail = createElt(
+      "ball-trail-" + id,
+      {
+        "--top": TOP + top,
+        "--left": LEFT + left,
+        "--size": BALL_SIZE,
+        "--transform-speed": `${TICK_TIME * 1.1}ms`,
+      },
+      ["ball", "fading-trail"]
+    );
+    setTimeout(() => {
+      trail.remove();
+    }, 1000);
+  }
+
   function mainLoop() {
     const direction = { x: 1, y: 1 };
     let ticksUntilWeCanBounce = 0;
@@ -544,6 +577,7 @@ const main = function () {
 
       translate(ball, newBall.left, newBall.top);
       rotateForVector(ball, direction.x, direction.y);
+      addBallTrail(ballLeft, ballTop);
       ballLeft = newBall.left;
       ballTop = newBall.top;
     }
