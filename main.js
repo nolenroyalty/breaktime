@@ -96,17 +96,18 @@ const css = `
   0% {
     opacity: 0.75;
     transform: scale(0.9);
+    filter: blur(2px);
   }
 
   100% {
     opacity: 0;
     transform: scale(0.3);
+    filter: blur(4px);
   }
 }
 
 .fading-trail {
   animation: fading-trail 1s ease-out both;
-  filter: blur(4px);
 }
 
 .paddle {
@@ -661,7 +662,7 @@ const main = function () {
       });
 
       translate(ball, newBall.left, newBall.top);
-      // addBallTrail(ballLeft, ballTop);
+      addBallTrail(ballLeft, ballTop);
       ballLeft = newBall.left;
       ballTop = newBall.top;
     }
