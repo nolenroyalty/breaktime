@@ -149,7 +149,6 @@ particle {
   border-radius: 2px;
   width: var(--width);
   height: var(--height);
-  /* nroyalty: randomize color? */
   background-color: var(--color);
   position: fixed;
   z-index: 1000;
@@ -238,6 +237,18 @@ const main = function () {
   function addTransform(elt, transform, key) {
     const prefix = `data-transform-`;
     elt.setAttribute(prefix + key, transform);
+    const transforms = [];
+    for (const [k, v] of Object.entries(elt.dataset)) {
+      if (k.startsWith("transform")) {
+        transforms.push(v);
+      }
+    }
+    elt.style.transform = transforms.join(" ");
+  }
+
+  function removeTransform(elt, key) {
+    const prefix = `data-transform-`;
+    elt.removeAttribute(prefix + key);
     const transforms = [];
     for (const [k, v] of Object.entries(elt.dataset)) {
       if (k.startsWith("transform")) {
@@ -647,6 +658,9 @@ const main = function () {
       };
     };
 
+    const MAX_BALL_SCALE_COUNT = 8;
+    let BALL_SCALE_COUNT = -1;
+
     function loop() {
       const tickId = Math.floor(Math.random() * 1000000);
       ticksUntilWeCanBounce = Math.max(0, ticksUntilWeCanBounce - 1);
@@ -711,6 +725,20 @@ const main = function () {
       addBallTrail(ballLeft, ballTop);
       ballLeft = newBall.left;
       ballTop = newBall.top;
+
+      if (hasCollided.x || hasCollided.y) {
+        BALL_SCALE_COUNT = MAX_BALL_SCALE_COUNT;
+      }
+      if (BALL_SCALE_COUNT > 0) {
+        const v =
+          (MAX_BALL_SCALE_COUNT - BALL_SCALE_COUNT) / MAX_BALL_SCALE_COUNT;
+        const scale = Math.floor(10 * (1 + Math.pow(1 - v, 2) * 0.3)) / 10;
+        addTransform(ball, `scale(${scale})`, "scale");
+        BALL_SCALE_COUNT -= 1;
+      } else if (BALL_SCALE_COUNT === 0) {
+        removeTransform(ball, "scale");
+        BALL_SCALE_COUNT -= 1;
+      }
     }
 
     return wrappedIntervalLoop(loop, "GAME");
