@@ -85,7 +85,7 @@ const css = `
   left: calc(var(--left) * 1px);
   width: calc(var(--width) * 1px);
   height: calc(var(--height) * 1px);
-  background-color: var(--color-playarea);
+  /* background-color: var(--color-playarea); */
   outline: 2px dashed black;
   pointer-events: none;
   transition: opacity 1.5s ease;
@@ -408,9 +408,13 @@ const main = function () {
       nextLeft = WIDTH - BALL_SIZE;
       hasCollided.x = true;
     }
-    if (nextTop < 0 || nextTop > HEIGHT - BALL_SIZE) {
-      direction.y *= -1;
-      nextTop = clamp(0, HEIGHT - BALL_SIZE, nextTop);
+    if (nextTop < 0) {
+      direction.y = Math.abs(direction.y);
+      nextTop = 0;
+      hasCollided.y = true;
+    } else if (nextTop + BALL_SIZE > HEIGHT) {
+      direction.y = -Math.abs(direction.y);
+      nextTop = HEIGHT - BALL_SIZE;
       hasCollided.y = true;
     }
   }
