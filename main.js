@@ -64,7 +64,10 @@ const css = `
 :root {
   --color-black: hsl(235deg 15% 15%);
   --color-grey: hsl(235deg 5% 35%);
+  --color-grey-transparent: hsla(235deg 5% 35% / 0.7);
   --color-playarea: hsl(235deg 15% 67%);
+
+  --hue-rotation: 0deg;
 }
 
 @keyframes revealClipPath {
@@ -96,11 +99,23 @@ const css = `
   top: calc(var(--top)* 1px);
   width: calc(var(--size)* 1px);
   height: calc(var(--size)* 1px);
-  background-color: var(--color-grey);
+  /* background-color: var(--color-grey); */
+  background-color: hsl(0deg 20% 50%);
   border-radius: 50%; 
   will-change: transform;
-  transition: transform var(--transform-speed) linear, opacity 1s ease;
+  transition: transform var(--transform-speed) linear,
+               opacity 1s ease, 
+               filter var(--transform-speed) ease;
+  filter: hue-rotate(var(--hue-rotation));
+  border: 2px solid var(--color-grey-transparent);
+  box-sizing: border-box;
   z-index: 1001;
+}
+
+.hidden-ball {
+  display: none;
+  z-index: 1000;
+  filter: blur(6px) hue-rotate(var(--hue-rotation));
 }
 
 @keyframes fading-trail {
@@ -119,6 +134,7 @@ const css = `
 
 .fading-trail {
   animation: fading-trail 1s ease-out both;
+  display: revert;
 }
 
 .paddle {
@@ -185,6 +201,8 @@ const main = function () {
   const HEIGHT = BOTTOM - TOP;
   const PADDLE_WIDTH = 100;
   const PADDLE_HEIGHT = 20;
+  let HUE_ROTATION = 0;
+  const HUE_ROTATION_INCREASE = 360 / (5000 / TICK_TIME);
   // It's gross but these need to be global :/
   let paddleLeft = WIDTH / 2 - 50;
   const paddleTop = HEIGHT - 22;
@@ -485,7 +503,10 @@ const main = function () {
     const fromY = startingY + TOP;
     const toX = startingX + vector.x * distanceToTravel + LEFT;
     const toY = startingY + vector.y * distanceToTravel + TOP;
-    const rotation = Math.random() * 360 + "deg";
+    const rotation = (Math.random() - 0.5) * 720 + "deg";
+    const hueRotation = (Math.random() - 0.5) * 30 + "deg";
+    const saturation = 1.2 + Math.random() * 0.5;
+    particle.style.filter = `brightness(0.9) hue-rotate(${hueRotation}) saturate(${saturation})`;
     const animation = particle.animate(
       [
         {
@@ -494,13 +515,13 @@ const main = function () {
         },
         {
           transform: `translate(${toX}px, ${toY}px) rotate(${rotation})`,
-          opacity: 0,
+          opacity: 0.35,
         },
       ],
       {
         duration: 250 + Math.random() * 500,
-        easing: "ease-out",
-        delay: Math.random() * 150,
+        easing: "ease",
+        delay: Math.random() * 100,
       }
     );
 
@@ -627,22 +648,59 @@ const main = function () {
     return wrappedIntervalLoop(loop, "PADDLE");
   }
 
-  function addBallTrail(left, top) {
-    const id = Math.floor(Math.random() * 1000000);
-    const trail = createElt(
-      "ball-trail-" + id,
-      {
-        "--top": TOP + top,
-        "--left": LEFT + left,
-        "--size": BALL_SIZE,
-        "--transform-speed": `${TICK_TIME * 1.1}ms`,
-      },
-      ["ball", "fading-trail"]
+  function incrementHueRotation(amount = null) {
+    amount = amount === null ? HUE_ROTATION_INCREASE : amount;
+    HUE_ROTATION += amount;
+    HUE_ROTATION = HUE_ROTATION % 360;
+    document.documentElement.style.setProperty(
+      "--hue-rotation",
+      HUE_ROTATION + "deg"
     );
-    setTimeout(() => {
-      trail.remove();
-    }, 1000);
   }
+
+  /* to avoid adding a new dom element every tick we use a little pool */
+  function makeAddBallTrail() {
+    const TRAIL_COUNT = 15;
+    const makeTrail = () => {
+      const id = Math.floor(Math.random() * 1000000);
+      return createElt(
+        "ball-trail-" + id,
+        {
+          "--top": TOP,
+          "--left": LEFT,
+          "--size": BALL_SIZE,
+          "--transform-speed": `${TICK_TIME * 1.1}ms`,
+        },
+        ["ball", "hidden-ball"]
+      );
+    };
+    const trails = Array.from({ length: TRAIL_COUNT }, makeTrail);
+    let trailIndex = 0;
+    const addBallTrail = (left, top) => {
+      const trail = trails[trailIndex];
+      trail.style.setProperty("--top", TOP + top);
+      trail.style.setProperty("--left", LEFT + left);
+      trail.style.setProperty("display", "revert");
+      trailIndex = (trailIndex + 1) % TRAIL_COUNT;
+      const animation = trail.animate(
+        [
+          {
+            opacity: 0.75,
+            transform: "scale(0.9)",
+            // filter: `blur(6px) hue-rotate(${HUE_ROTATION}deg)`,
+          },
+          {
+            opacity: 0.1,
+            transform: "scale(0.3)",
+            // filter: `blur(6px) hue-rotate(${HUE_ROTATION - 180}deg)`,
+          },
+        ],
+        { duration: 1000, easing: "ease" }
+      );
+    };
+    return addBallTrail;
+  }
+  const addBallTrail = makeAddBallTrail();
 
   function mainLoop() {
     const direction = { x: 1, y: 1 };
@@ -723,11 +781,15 @@ const main = function () {
 
       translate(ball, newBall.left, newBall.top);
       addBallTrail(ballLeft, ballTop);
+      incrementHueRotation();
+      ball.style.setProperty("--hue", HUE_ROTATION + "deg");
       ballLeft = newBall.left;
       ballTop = newBall.top;
 
       if (hasCollided.x || hasCollided.y) {
         BALL_SCALE_COUNT = MAX_BALL_SCALE_COUNT;
+        const count = hasCollided.x ? 1 : 0 + hasCollided.y ? 1 : 0;
+        incrementHueRotation(30 * count);
       }
       if (BALL_SCALE_COUNT > 0) {
         const v =
