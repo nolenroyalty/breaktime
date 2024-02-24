@@ -86,7 +86,7 @@ const css = `
   width: calc(var(--width) * 1px);
   height: calc(var(--height) * 1px);
   /* background-color: var(--color-playarea); */
-  outline: 2px dashed black;
+  /* outline: 2px dashed black; */
   pointer-events: none;
   transition: opacity 1.5s ease;
   animation: revealClipPath 1s ease both;
