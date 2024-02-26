@@ -93,6 +93,16 @@ const css = `
   will-change: transform, clip-path;
 }
 
+.no-collision-zone {
+  position: fixed;
+  top: calc(var(--top) * 1px);
+  left: calc(var(--left) * 1px);
+  width: calc(var(--width) * 1px);
+  bottom: calc(var(--bottom) * 1px);
+  backdrop-filter: blur(5px);
+  z-index: 999;
+}
+
 .ball {
   position: fixed;
   left: calc(var(--left)* 1px);
@@ -196,7 +206,10 @@ const main = function () {
   const LEFT = Math.min(topPlayArea.left, bottomPlayArea.left);
   const TOP = topPlayArea.top;
   const RIGHT = Math.max(topPlayArea.right, bottomPlayArea.right);
-  const BOTTOM = Math.max(bottomPlayArea.bottom, window.innerHeight - 25) - 25;
+  const BOTTOM_OFFSET = 5;
+  const BOTTOM =
+    Math.max(bottomPlayArea.bottom, window.innerHeight - BOTTOM_OFFSET) -
+    BOTTOM_OFFSET;
   const WIDTH = RIGHT - LEFT;
   const HEIGHT = BOTTOM - TOP;
   const PADDLE_WIDTH = 100;
@@ -226,6 +239,22 @@ const main = function () {
     { "--top": TOP, "--left": LEFT, "--width": WIDTH, "--height": HEIGHT },
     ["play-area", "transparent"]
   );
+
+  const [noCollisionZone, noCollisionZoneTop] = (() => {
+    const heightOffset = TOP + HEIGHT * 0.8;
+    const height = HEIGHT - heightOffset;
+    const elt = createElt(
+      "_noCollisionZone",
+      {
+        "--top": heightOffset,
+        "--left": LEFT,
+        "--width": WIDTH,
+        "--bottom": BOTTOM_OFFSET,
+      },
+      ["no-collision-zone"]
+    );
+    return [elt, heightOffset - TOP];
+  })();
 
   const ball = createElt(
     "_ball",
@@ -335,6 +364,11 @@ const main = function () {
     const newCircle = circleOfBox(newBall.left, newBall.top);
     const closestPoint = getClosestPointToCircle(newCircle, collisionRect);
     const collided = circleCollidesWithRect(newCircle, closestPoint);
+    if (collided) {
+      console.log(`COLLISION DETECTED: ${JSON.stringify(newCircle)}`);
+      console.log(`BALL Y: ${newBall.top} | RECT Y: ${collisionRect.top}`);
+      console.log(`NO COLLISION ZONE TOP: ${noCollisionZoneTop}`);
+    }
     return collided;
   }
 
@@ -712,11 +746,15 @@ const main = function () {
 
     const translatedBounds = (obj) => {
       const bounds = obj.getBoundingClientRect();
+      const top = bounds.top - TOP;
+      if (top > noCollisionZoneTop) {
+        return null;
+      }
       return {
         left: bounds.left - LEFT,
         right: bounds.right - LEFT,
         top: bounds.top - TOP,
-        bottom: bounds.bottom - TOP,
+        bottom: Math.min(bounds.bottom - TOP, noCollisionZoneTop),
       };
     };
 
@@ -766,6 +804,9 @@ const main = function () {
         }
 
         const eventBounds = translatedBounds(event);
+        if (eventBounds === null) {
+          return;
+        }
         const collided = detectCircularCollision(newBall, eventBounds);
         if (collided) {
           console.log(`[${tickId}] COLLISION DETECTED: ${event.textContent}`);
