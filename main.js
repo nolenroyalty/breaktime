@@ -195,7 +195,6 @@ const main = function () {
   const TICK_TIME = 50;
   const BASE_SPEED = 7.5;
   const STOP_AFTER_THIS_MANY_TICKS = 2000;
-  const FADE_IN_TIME = 1000;
 
   const mainElt = document.querySelector("div[role='main']");
   const grid = mainElt.querySelector("div[role='grid']");
@@ -221,6 +220,18 @@ const main = function () {
   const paddleTop = HEIGHT - 22;
   let ballLeft = WIDTH / 2 - BALL_SIZE / 2;
   let ballTop = HEIGHT - 100;
+
+  let currentBall = {
+    x: WIDTH / 2,
+    y: HEIGHT - 100 + BALL_SIZE / 2,
+    r: RADIUS,
+  };
+  let nextBall = { x: WIDTH / 2, y: HEIGHT - 100 + BALL_SIZE / 2, r: RADIUS };
+
+  const getBallLeft = (ball) => ball.x - BALL_SIZE / 2;
+  const getBallRight = (ball) => ball.x + BALL_SIZE / 2;
+  const getBallTop = (ball) => ball.y - BALL_SIZE / 2;
+  const getBallBottom = (ball) => ball.y + BALL_SIZE / 2;
 
   function createElt(id, style = {}, classList = [], kind = "div") {
     document.querySelector(`#${id}`)?.remove();
@@ -256,7 +267,7 @@ const main = function () {
     return [elt, heightOffset - TOP];
   })();
 
-  const ball = createElt(
+  const ballElement = createElt(
     "_ball",
     {
       "--top": TOP,
@@ -309,6 +320,12 @@ const main = function () {
     addTransform(elt, `translate(${x}px, ${y}px)`, "translate");
   }
 
+  function translateBall(ball) {
+    const left = getBallLeft(ball);
+    const top = getBallTop(ball);
+    translate(ballElement, left, top);
+  }
+
   function rotateForVector(elt, dx, dy) {
     // dy is negative because the y axis is inverted in the browser.
     let angle = Math.atan2(dy, dx) * (180 / Math.PI);
@@ -325,13 +342,8 @@ const main = function () {
     bottom: top + height,
   });
 
-  const makeBallBox = (left, top) => makeBox(left, top, BALL_SIZE, BALL_SIZE);
   const makePaddleBox = (left, top) =>
     makeBox(left, top, PADDLE_WIDTH, PADDLE_HEIGHT);
-
-  function circleOfBox(left, top) {
-    return { x: left + RADIUS, y: top + RADIUS, r: RADIUS };
-  }
 
   function getClosestPointToCircle(circle, rect) {
     const closestX =
@@ -360,15 +372,9 @@ const main = function () {
     return distance < circle.r;
   }
 
-  function detectCircularCollision(newBall, collisionRect) {
-    const newCircle = circleOfBox(newBall.left, newBall.top);
-    const closestPoint = getClosestPointToCircle(newCircle, collisionRect);
-    const collided = circleCollidesWithRect(newCircle, closestPoint);
-    if (collided) {
-      console.log(`COLLISION DETECTED: ${JSON.stringify(newCircle)}`);
-      console.log(`BALL Y: ${newBall.top} | RECT Y: ${collisionRect.top}`);
-      console.log(`NO COLLISION ZONE TOP: ${noCollisionZoneTop}`);
-    }
+  function detectCircularCollision(ball, collisionRect) {
+    const closestPoint = getClosestPointToCircle(ball, collisionRect);
+    const collided = circleCollidesWithRect(ball, closestPoint);
     return collided;
   }
 
@@ -394,10 +400,9 @@ const main = function () {
     return ticks;
   };
 
-  function handleCollision(newBall, collisionRect, direction, hasCollided) {
-    const newCircle = circleOfBox(newBall.left, newBall.top);
+  function handleCollision(ball, collisionRect, direction, hasCollided) {
     const ticksToCollision = getTicksToCollision(
-      newCircle,
+      ball,
       collisionRect,
       direction
     );
@@ -415,40 +420,40 @@ const main = function () {
     let didCollide = false;
     if (tryBounce.x && !hasCollided.x) {
       hasCollided.x = true;
-      newBall.left -= minTicks * direction.x;
+      ball.x -= minTicks * direction.x;
       direction.x *= -1;
       didCollide = true;
     }
     if (tryBounce.y && !hasCollided.y) {
       hasCollided.y = true;
-      newBall.top -= minTicks * direction.y;
+      ball.y -= minTicks * direction.y;
       direction.y *= -1;
       didCollide = true;
     }
     return didCollide;
   }
 
-  function handlePlayAreaCollision(
-    { nextLeft, nextTop },
-    direction,
-    hasCollided
-  ) {
-    if (nextLeft < 0) {
+  function handlePlayAreaCollision(ball, direction, hasCollided) {
+    const left = getBallLeft(ball);
+    const top = getBallTop(ball);
+    const right = getBallRight(ball);
+    const bottom = getBallBottom(ball);
+    if (left < 0) {
       direction.x = Math.abs(direction.x);
-      nextLeft = 0;
+      ball.x += Math.abs(left);
       hasCollided.x = true;
-    } else if (nextLeft + BALL_SIZE > WIDTH) {
+    } else if (right > WIDTH) {
       direction.x = -Math.abs(direction.x);
-      nextLeft = WIDTH - BALL_SIZE;
+      ball.x -= right - WIDTH;
       hasCollided.x = true;
     }
-    if (nextTop < 0) {
+    if (top < 0) {
       direction.y = Math.abs(direction.y);
-      nextTop = 0;
+      ball.y += Math.abs(top);
       hasCollided.y = true;
-    } else if (nextTop + BALL_SIZE > HEIGHT) {
+    } else if (bottom > HEIGHT) {
       direction.y = -Math.abs(direction.y);
-      nextTop = HEIGHT - BALL_SIZE;
+      ball.y -= bottom - HEIGHT;
       hasCollided.y = true;
     }
   }
@@ -457,26 +462,25 @@ const main = function () {
   nroyalty: remove math.abs hack
    */
   function handlePaddleCollision(
-    newBall,
+    ball,
     paddleLeft,
     direction,
     hasCollided,
     tickId
   ) {
     const paddleCenter = paddleLeft + PADDLE_WIDTH / 2;
-    const ballCenter = newBall.left + BALL_SIZE / 2;
     const leftThird = paddleLeft + PADDLE_WIDTH / 3;
     const rightThird = paddleLeft + (PADDLE_WIDTH / 3) * 2;
     let reflectionVector = { x: 0, y: -1 };
-    if (ballCenter < leftThird) {
-      const distanceFromLeft = Math.max(0, ballCenter - paddleLeft);
+    if (ball.x < leftThird) {
+      const distanceFromLeft = Math.max(0, ball.x - paddleLeft);
       const scaledToPaddle = distanceFromLeft / (PADDLE_WIDTH / 3);
       const x = -8 * (1 - scaledToPaddle);
       reflectionVector = { x, y: -8 };
-    } else if (ballCenter > rightThird) {
+    } else if (ball.x > rightThird) {
       const distanceFromTheRight = Math.min(
         PADDLE_WIDTH / 3,
-        ballCenter - rightThird
+        ball.x - rightThird
       );
       const scaledToPaddle = distanceFromTheRight / (PADDLE_WIDTH / 3);
       const x = 8 * scaledToPaddle;
@@ -714,7 +718,10 @@ const main = function () {
     };
     const trails = Array.from({ length: TRAIL_COUNT }, makeTrail);
     let trailIndex = 0;
-    const addBallTrail = (left, top) => {
+    const addBallTrail = (ball) => {
+      const { x, y } = ball;
+      const left = x - BALL_SIZE / 2;
+      const top = y - BALL_SIZE / 2;
       const trail = trails[trailIndex];
       trail.style.setProperty("--top", TOP + top);
       trail.style.setProperty("--left", LEFT + left);
@@ -764,12 +771,13 @@ const main = function () {
     function loop() {
       const tickId = Math.floor(Math.random() * 1000000);
       ticksUntilWeCanBounce = Math.max(0, ticksUntilWeCanBounce - 1);
-      let nextLeft = ballLeft + BASE_SPEED * direction.x;
-      let nextTop = ballTop + BASE_SPEED * direction.y;
+
+      nextBall.x = currentBall.x + BASE_SPEED * direction.x;
+      nextBall.y = currentBall.y + BASE_SPEED * direction.y;
+
       let hasCollided = { x: false, y: false };
 
-      handlePlayAreaCollision({ nextLeft, nextTop }, direction, hasCollided);
-      const newBall = makeBallBox(nextLeft, nextTop);
+      handlePlayAreaCollision(nextBall, direction, hasCollided);
 
       function collideWithEvent(event, doClick) {
         event.classList.add("faded");
@@ -777,7 +785,7 @@ const main = function () {
       }
 
       const paddleBox = makePaddleBox(paddleLeft, paddleTop);
-      const collidesWithPaddle = detectCircularCollision(newBall, paddleBox);
+      const collidesWithPaddle = detectCircularCollision(nextBall, paddleBox);
 
       if (collidesWithPaddle && ticksUntilWeCanBounce === 0) {
         if (direction.y < 0) {
@@ -788,7 +796,7 @@ const main = function () {
           ticksUntilWeCanBounce = 10;
           console.log(`[${tickId}] PADDLE COLLISION DETECTED`);
           handlePaddleCollision(
-            newBall,
+            nextBall,
             paddleLeft,
             direction,
             hasCollided,
@@ -807,7 +815,7 @@ const main = function () {
         if (eventBounds === null) {
           return;
         }
-        const collided = detectCircularCollision(newBall, eventBounds);
+        const collided = detectCircularCollision(nextBall, eventBounds);
         if (collided) {
           console.log(`[${tickId}] COLLISION DETECTED: ${event.textContent}`);
 
@@ -815,7 +823,7 @@ const main = function () {
           addParticlesForEvent(event, eventBounds);
           screenShake();
           const bounced = handleCollision(
-            newBall,
+            nextBall,
             eventBounds,
             direction,
             hasCollided
@@ -824,12 +832,12 @@ const main = function () {
         }
       });
 
-      translate(ball, newBall.left, newBall.top);
-      addBallTrail(ballLeft, ballTop);
+      translateBall(nextBall);
+      addBallTrail(currentBall);
       incrementHueRotation();
-      ball.style.setProperty("--hue", HUE_ROTATION + "deg");
-      ballLeft = newBall.left;
-      ballTop = newBall.top;
+      ballElement.style.setProperty("--hue", HUE_ROTATION + "deg");
+      currentBall.x = nextBall.x;
+      currentBall.y = nextBall.y;
 
       if (hasCollided.x || hasCollided.y) {
         BALL_SCALE_COUNT = MAX_BALL_SCALE_COUNT;
@@ -840,10 +848,10 @@ const main = function () {
         const v =
           (MAX_BALL_SCALE_COUNT - BALL_SCALE_COUNT) / MAX_BALL_SCALE_COUNT;
         const scale = Math.floor(10 * (1 + Math.pow(1 - v, 2) * 0.3)) / 10;
-        addTransform(ball, `scale(${scale})`, "scale");
+        addTransform(ballElement, `scale(${scale})`, "scale");
         BALL_SCALE_COUNT -= 1;
       } else if (BALL_SCALE_COUNT === 0) {
-        removeTransform(ball, "scale");
+        removeTransform(ballElement, "scale");
         BALL_SCALE_COUNT -= 1;
       }
     }
@@ -854,7 +862,7 @@ const main = function () {
   let mainInterval;
   let paddleInterval;
   function applyInitialTranslations() {
-    translate(ball, ballLeft, ballTop);
+    translateBall(currentBall);
     translate(paddle, paddleLeft, paddleTop);
   }
   applyInitialTranslations();
@@ -866,7 +874,7 @@ const main = function () {
   }, STOP_AFTER_THIS_MANY_TICKS * TICK_TIME);
 
   const setup = setTimeout(() => {
-    ball.classList.remove("transparent");
+    ballElement.classList.remove("transparent");
     playArea.classList.remove("transparent");
     paddle.classList.remove("transparent");
   }, 1);
