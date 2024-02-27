@@ -354,18 +354,8 @@ const main = function () {
     makeBox(left, top, PADDLE_WIDTH, PADDLE_HEIGHT);
 
   function getClosestPointToCircle(circle, rect) {
-    const closestX =
-      circle.x < rect.left
-        ? rect.left
-        : circle.x > rect.right
-        ? rect.right
-        : circle.x;
-    const closestY =
-      circle.y < rect.top
-        ? rect.top
-        : circle.y > rect.bottom
-        ? rect.bottom
-        : circle.y;
+    const closestX = clamp(rect.left, rect.right, circle.x);
+    const closestY = clamp(rect.top, rect.bottom, circle.y);
     return { x: closestX, y: closestY };
   }
 
