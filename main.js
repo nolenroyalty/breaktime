@@ -195,7 +195,7 @@ const main = function () {
   const BALL_SIZE = 25;
   const RADIUS = BALL_SIZE / 2;
   const TICK_TIME = 50;
-  const BASE_SPEED = 7.5;
+  const BASE_SPEED = 10;
   const STOP_AFTER_THIS_MANY_TICKS = 2000;
 
   const mainElt = document.querySelector("div[role='main']");
