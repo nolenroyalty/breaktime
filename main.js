@@ -706,7 +706,7 @@ const main = function () {
 
   /* to avoid adding a new dom element every tick we use a little pool */
   function makeAddBallTrail() {
-    const TRAIL_COUNT = 15;
+    const TRAIL_COUNT = 10;
     const makeTrail = () => {
       const id = Math.floor(Math.random() * 1000000);
       return createElt(
@@ -722,8 +722,9 @@ const main = function () {
     };
     const trails = Array.from({ length: TRAIL_COUNT }, makeTrail);
     let trailIndex = 0;
-    const addBallTrail = (ball) => {
-      const { x, y } = ball;
+
+    const addBallTrail = () => {
+      const { x, y } = currentBall;
       const left = x - BALL_SIZE / 2;
       const top = y - BALL_SIZE / 2;
       const trail = trails[trailIndex];
@@ -736,17 +737,16 @@ const main = function () {
           {
             opacity: 0.75,
             transform: "scale(0.8)",
-            // filter: `blur(6px) hue-rotate(${HUE_ROTATION}deg)`,
           },
           {
             opacity: 0.1,
             transform: "scale(0.3)",
-            // filter: `blur(6px) hue-rotate(${HUE_ROTATION - 180}deg)`,
           },
         ],
         { duration: 1000, easing: "ease" }
       );
     };
+
     return addBallTrail;
   }
   const addBallTrail = makeAddBallTrail();
@@ -799,17 +799,19 @@ const main = function () {
     let ticksUntilCanPaddleBounce = 0;
     let tickId = 0;
     let lastFrameTime = 0;
+    let timeUntilNextBallTrail = 0;
 
     function applyForces(direction, delta) {
       nextBall.x = currentBall.x + BASE_SPEED * direction.x * delta;
       nextBall.y = currentBall.y + BASE_SPEED * direction.y * delta;
     }
 
-    function resetTickState() {
+    function resetTickState(delta) {
       ticksUntilCanPaddleBounce = Math.max(0, ticksUntilCanPaddleBounce - 1);
       tickId = Math.floor(Math.random() * 1000000);
       hasCollided.x = false;
       hasCollided.y = false;
+      timeUntilNextBallTrail += delta;
     }
 
     function handlePaddleCollision() {
@@ -865,33 +867,54 @@ const main = function () {
       ballScaleFactor = Math.max(-1, ballScaleFactor - delta);
     }
 
-    function loop(timestamp) {
-      if (!RUN_GAME) {
-        return;
+    function maybeAddBallTrail() {
+      if (timeUntilNextBallTrail > 1) {
+        addBallTrail();
+        timeUntilNextBallTrail = 0;
       }
+    }
 
-      const delta =
-        Math.floor(10 * ((timestamp - lastFrameTime) / TICK_TIME)) / 10;
-      lastFrameTime = timestamp;
-      resetTickState();
-      applyForces(direction, delta);
-      handlePlayAreaCollision(nextBall, direction, hasCollided);
-      handlePaddleCollision();
+    function handleCleanup() {}
 
-      getEvents().forEach((event) => {
-        maybeCollideWithEvent(event, nextBall, direction, hasCollided, tickId);
-      });
+    function loop(timestamp) {
+      try {
+        if (!RUN_GAME) {
+          handleCleanup();
+          return;
+        }
 
-      translateBall(nextBall);
-      addBallTrail(currentBall);
-      incrementHueRotation();
-      applyCollisionVisualEffects();
+        const delta =
+          Math.floor(10 * ((timestamp - lastFrameTime) / TICK_TIME)) / 10;
+        lastFrameTime = timestamp;
+        resetTickState(delta);
+        applyForces(direction, delta);
+        handlePlayAreaCollision(nextBall, direction, hasCollided);
+        handlePaddleCollision();
 
-      decrementDeltaBasedState(delta);
+        getEvents().forEach((event) => {
+          maybeCollideWithEvent(
+            event,
+            nextBall,
+            direction,
+            hasCollided,
+            tickId
+          );
+        });
 
-      currentBall.x = nextBall.x;
-      currentBall.y = nextBall.y;
-      requestAnimationFrame(loop);
+        translateBall(nextBall);
+        incrementHueRotation();
+        applyCollisionVisualEffects();
+        maybeAddBallTrail();
+
+        decrementDeltaBasedState(delta);
+
+        currentBall.x = nextBall.x;
+        currentBall.y = nextBall.y;
+        requestAnimationFrame(loop);
+      } catch (e) {
+        console.log("MAIN LOOP ERROR: ", e);
+        console.log("TRACE: ", e.stack);
+      }
     }
 
     function beginLoop() {
