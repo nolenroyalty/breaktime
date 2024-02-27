@@ -220,8 +220,6 @@ const main = function () {
   // It's gross but these need to be global :/
   let paddleLeft = WIDTH / 2 - 50;
   const paddleTop = HEIGHT - 22;
-  let ballLeft = WIDTH / 2 - BALL_SIZE / 2;
-  let ballTop = HEIGHT - 100;
   let RUN_GAME = false;
 
   let currentBall = {
