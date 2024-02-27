@@ -157,7 +157,8 @@ const css = `
   height: calc(var(--height)* 1px);
   background-color: var(--color-grey);
   z-index: 1002;
-  transition: transform 0.05s linear, opacity 1s ease;
+  /* transition: transform 0.05s linear, opacity 1s ease; */
+  transition: opacity 1s ease;
 }
 
 .transparent {
@@ -197,6 +198,7 @@ const main = function () {
   const RADIUS = BALL_SIZE / 2;
   const TICK_TIME = 50;
   const BASE_SPEED = 10;
+  const PADDLE_SPEED = 10;
   const STOP_AFTER_THIS_MANY_TICKS = 2000;
 
   const mainElt = document.querySelector("div[role='main']");
@@ -325,9 +327,11 @@ const main = function () {
   function translateBall(ball) {
     const left = getBallLeft(ball);
     const top = getBallTop(ball);
-    // ballElement.style.setProperty("--left", LEFT + left);
-    // ballElement.style.setProperty("--top", TOP + top);
     translate(ballElement, left, top);
+  }
+
+  function translatePaddle() {
+    translate(paddle, paddleLeft, paddleTop);
   }
 
   function rotateForVector(elt, dx, dy) {
@@ -662,37 +666,52 @@ const main = function () {
 
   const screenShake = makeScreenShake();
 
-  function paddleLoop() {
-    const keysPressed = { ArrowLeft: false, ArrowRight: false };
-    document.addEventListener("keydown", (e) => {
-      if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
-        e.preventDefault();
-        keysPressed[e.key] = true;
+  /* it'd be more convenient to move the paddle within a separate interval loop,
+  but for animation smoothness i think we want to move it within the main 
+  requestAnimationFrame loop. So here we just keep some state around how
+  long the paddle has been pressed and we apply and reset that state every
+  tick. */
+  const paddlePressedIntervals = {
+    left: { pressedSince: null, past: 0 },
+    right: { pressedSince: null, past: 0 },
+  };
+  const [startPaddleListeners, stopPaddleListeners] = (() => {
+    const handleKeydown = (e) => {
+      if (e.key === "ArrowLeft") {
+        paddlePressedIntervals.left.pressedSince = performance.now();
+      } else if (e.key === "ArrowRight") {
+        paddlePressedIntervals.right.pressedSince = performance.now();
       }
-    });
-    document.addEventListener("keyup", (e) => {
-      if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
-        keysPressed[e.key] = false;
-      }
-    });
+    };
 
-    function loop() {
-      let shouldTranslate = false;
-      if (keysPressed.ArrowLeft) {
-        paddleLeft = clamp(0, WIDTH - PADDLE_WIDTH, paddleLeft - 2);
-        shouldTranslate = true;
-      }
-      if (keysPressed.ArrowRight) {
-        paddleLeft = clamp(0, WIDTH - PADDLE_WIDTH, paddleLeft + 2);
-        shouldTranslate = true;
-      }
-      if (shouldTranslate) {
-        translate(paddle, paddleLeft, paddleTop);
-      }
-    }
+    const handleKeyup = (e) => {
+      const addInterval = (key) => {
+        const pressedSince = paddlePressedIntervals[key].pressedSince;
+        if (pressedSince) {
+          const interval = performance.now() - pressedSince;
+          paddlePressedIntervals[key].past += interval;
+          paddlePressedIntervals[key].pressedSince = null;
+        }
+      };
 
-    return wrappedIntervalLoop(loop, "PADDLE");
-  }
+      if (e.key === "ArrowLeft") {
+        addInterval("left");
+      } else if (e.key === "ArrowRight") {
+        addInterval("right");
+      }
+    };
+
+    const start = () => {
+      document.addEventListener("keydown", handleKeydown);
+      document.addEventListener("keyup", handleKeyup);
+    };
+
+    const stop = () => {
+      document.removeEventListener("keydown", handleKeydown);
+      document.removeEventListener("keyup", handleKeyup);
+    };
+    return [start, stop];
+  })();
 
   function incrementHueRotation(amount) {
     HUE_ROTATION += amount;
@@ -805,9 +824,26 @@ const main = function () {
     let lastFrameTime = 0;
     let timeUntilNextBallTrail = 0;
 
-    function applyForces(direction, delta) {
+    function applyForces(direction, timestamp, delta) {
       nextBall.x = currentBall.x + BASE_SPEED * direction.x * delta;
       nextBall.y = currentBall.y + BASE_SPEED * direction.y * delta;
+
+      const getAndResetPaddleDelta = (key) => {
+        let t = paddlePressedIntervals[key].past;
+        if (paddlePressedIntervals[key].pressedSince) {
+          t += timestamp - paddlePressedIntervals[key].pressedSince;
+          paddlePressedIntervals[key].pressedSince = timestamp;
+        }
+        paddlePressedIntervals[key].past = 0;
+        return t;
+      };
+      const leftTime = getAndResetPaddleDelta("left");
+      const rightTime = getAndResetPaddleDelta("right");
+
+      const paddleDelta = ((rightTime - leftTime) / TICK_TIME) * PADDLE_SPEED;
+
+      paddleLeft = clamp(0, WIDTH - PADDLE_WIDTH, paddleLeft + paddleDelta);
+      translatePaddle();
     }
 
     function resetTickState(delta) {
@@ -897,7 +933,9 @@ const main = function () {
       }
     }
 
-    function handleCleanup() {}
+    function handleCleanup() {
+      stopPaddleListeners();
+    }
 
     function loop(timestamp) {
       try {
@@ -911,7 +949,7 @@ const main = function () {
         lastFrameTime = timestamp;
 
         resetTickState(delta);
-        applyForces(direction, delta);
+        applyForces(direction, timestamp, delta);
         handlePlayAreaCollision(nextBall, direction, hasCollided);
         handlePaddleCollision();
 
@@ -941,6 +979,7 @@ const main = function () {
 
     function beginLoop() {
       lastFrameTime = performance.now();
+      startPaddleListeners();
       requestAnimationFrame(loop);
     }
 
@@ -957,7 +996,6 @@ const main = function () {
 
   const stopGame = setTimeout(() => {
     console.log("STOPPING");
-    clearInterval(paddleInterval);
     RUN_GAME = false;
   }, STOP_AFTER_THIS_MANY_TICKS * TICK_TIME);
 
@@ -967,13 +1005,9 @@ const main = function () {
     paddle.classList.remove("transparent");
   }, 1);
 
-  paddleInterval = setInterval(paddleLoop(), 1000 / 60);
-
-  let started = false;
   const listener = document.addEventListener("keydown", (e) => {
-    if (e.code === "Space" && !started) {
+    if (e.code === "Space" && !RUN_GAME) {
       console.log("STARTING");
-      started = true;
       RUN_GAME = true;
       runMainLoop();
       document.removeEventListener("keydown", listener);
