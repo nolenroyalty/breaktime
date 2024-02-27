@@ -113,9 +113,10 @@ const css = `
   background-color: hsl(0deg 20% 50%);
   border-radius: 50%; 
   will-change: transform;
-  transition: transform var(--transform-speed) linear,
+  /* transition: transform var(--transform-speed) linear,
                opacity 1s ease, 
-               filter var(--transform-speed) ease;
+               filter var(--transform-speed) ease; */
+  transition: opacity 1s ease, filter(var(--transform-speed)) ease;
   filter: hue-rotate(var(--hue-rotation));
   border: 2px solid var(--color-grey-transparent);
   box-sizing: border-box;
@@ -126,6 +127,7 @@ const css = `
   display: none;
   z-index: 1000;
   filter: blur(6px) hue-rotate(var(--hue-rotation));
+  transition: opacity 1s ease, filter 1s ease, transform 1s ease;
 }
 
 @keyframes fading-trail {
@@ -220,6 +222,7 @@ const main = function () {
   const paddleTop = HEIGHT - 22;
   let ballLeft = WIDTH / 2 - BALL_SIZE / 2;
   let ballTop = HEIGHT - 100;
+  let RUN_GAME = false;
 
   let currentBall = {
     x: WIDTH / 2,
@@ -461,7 +464,7 @@ const main = function () {
   /* nroyalty: there are still some real bugs here :/
   nroyalty: remove math.abs hack
    */
-  function handlePaddleCollision(
+  function updateForPaddleCollision(
     ball,
     paddleLeft,
     direction,
@@ -619,6 +622,7 @@ const main = function () {
         fn();
       } catch (e) {
         console.log(`${label} ERROR: ${e}`);
+        console.log(`TRACE: ${e.stack}`);
       }
     };
   }
@@ -747,119 +751,158 @@ const main = function () {
   }
   const addBallTrail = makeAddBallTrail();
 
+  const translatedBounds = (obj) => {
+    const bounds = obj.getBoundingClientRect();
+    const top = bounds.top - TOP;
+    if (top > noCollisionZoneTop) {
+      return null;
+    }
+    return {
+      left: bounds.left - LEFT,
+      right: bounds.right - LEFT,
+      top: bounds.top - TOP,
+      bottom: Math.min(bounds.bottom - TOP, noCollisionZoneTop),
+    };
+  };
+
+  function maybeCollideWithEvent(event, ball, direction, hasCollided, tickId) {
+    if (event.dataset.intersected) {
+      return;
+    }
+
+    const eventBounds = translatedBounds(event);
+    if (eventBounds === null) {
+      return;
+    }
+    const collided = detectCircularCollision(ball, eventBounds);
+    if (collided) {
+      console.log(`[${tickId}] COLLISION DETECTED: ${event.textContent}`);
+      event.classList.add("faded");
+      event.dataset.intersected = "true";
+      addParticlesForEvent(event, eventBounds);
+      screenShake();
+      const bounced = handleCollision(
+        ball,
+        eventBounds,
+        direction,
+        hasCollided
+      );
+      console.log(`[${tickId}] BOUNCE? ${bounced}: ${event.textContent}`);
+    }
+  }
+
   function mainLoop() {
     const direction = { x: 1, y: 1 };
-    let ticksUntilWeCanBounce = 0;
-
-    const translatedBounds = (obj) => {
-      const bounds = obj.getBoundingClientRect();
-      const top = bounds.top - TOP;
-      if (top > noCollisionZoneTop) {
-        return null;
-      }
-      return {
-        left: bounds.left - LEFT,
-        right: bounds.right - LEFT,
-        top: bounds.top - TOP,
-        bottom: Math.min(bounds.bottom - TOP, noCollisionZoneTop),
-      };
-    };
-
+    const hasCollided = { x: false, y: false };
     const MAX_BALL_SCALE_COUNT = 8;
-    let BALL_SCALE_COUNT = -1;
+    let ballScaleFactor = -1;
+    let ticksUntilCanPaddleBounce = 0;
+    let tickId = 0;
+    let lastFrameTime = 0;
 
-    function loop() {
-      const tickId = Math.floor(Math.random() * 1000000);
-      ticksUntilWeCanBounce = Math.max(0, ticksUntilWeCanBounce - 1);
+    function applyForces(direction, delta) {
+      nextBall.x = currentBall.x + BASE_SPEED * direction.x * delta;
+      nextBall.y = currentBall.y + BASE_SPEED * direction.y * delta;
+    }
 
-      nextBall.x = currentBall.x + BASE_SPEED * direction.x;
-      nextBall.y = currentBall.y + BASE_SPEED * direction.y;
+    function resetTickState() {
+      ticksUntilCanPaddleBounce = Math.max(0, ticksUntilCanPaddleBounce - 1);
+      tickId = Math.floor(Math.random() * 1000000);
+      hasCollided.x = false;
+      hasCollided.y = false;
+    }
 
-      let hasCollided = { x: false, y: false };
-
-      handlePlayAreaCollision(nextBall, direction, hasCollided);
-
-      function collideWithEvent(event, doClick) {
-        event.classList.add("faded");
-        event.dataset.intersected = "true";
+    function handlePaddleCollision() {
+      if (ticksUntilCanPaddleBounce > 0) {
+        return false;
       }
 
       const paddleBox = makePaddleBox(paddleLeft, paddleTop);
       const collidesWithPaddle = detectCircularCollision(nextBall, paddleBox);
 
-      if (collidesWithPaddle && ticksUntilWeCanBounce === 0) {
+      if (collidesWithPaddle) {
         if (direction.y < 0) {
+          // nroyalty: do a better job here.
           console.log(
             `[${tickId}] POTENTIAL BUG: COLLIDED WITH PADDLE WHILE MOVING UP`
           );
+          return false;
         } else {
-          ticksUntilWeCanBounce = 10;
+          ticksUntilCanPaddleBounce = 10;
           console.log(`[${tickId}] PADDLE COLLISION DETECTED`);
-          handlePaddleCollision(
+          updateForPaddleCollision(
             nextBall,
             paddleLeft,
             direction,
             hasCollided,
             tickId
           );
+          return true;
         }
       }
+    }
 
-      let doClick = true;
+    function applyCollisionVisualEffects() {
+      const collisionCount = (hasCollided.x ? 1 : 0) + (hasCollided.y ? 1 : 0);
+      if (collisionCount > 0) {
+        incrementHueRotation(30 * collisionCount);
+        ballScaleFactor = MAX_BALL_SCALE_COUNT;
+      }
+
+      ballElement.style.setProperty("--hue", HUE_ROTATION + "deg");
+
+      if (ballScaleFactor > 0) {
+        const v =
+          (MAX_BALL_SCALE_COUNT - ballScaleFactor) / MAX_BALL_SCALE_COUNT;
+        const scale = Math.floor(10 * (1 + Math.pow(1 - v, 2) * 0.3)) / 10;
+        addTransform(ballElement, `scale(${scale})`, "scale");
+      } else if (ballScaleFactor === 0) {
+        removeTransform(ballElement, "scale");
+      }
+    }
+
+    function decrementDeltaBasedState(delta) {
+      ballScaleFactor = Math.max(-1, ballScaleFactor - delta);
+    }
+
+    function loop(timestamp) {
+      if (!RUN_GAME) {
+        return;
+      }
+
+      const delta =
+        Math.floor(10 * ((timestamp - lastFrameTime) / TICK_TIME)) / 10;
+      lastFrameTime = timestamp;
+      resetTickState();
+      applyForces(direction, delta);
+      handlePlayAreaCollision(nextBall, direction, hasCollided);
+      handlePaddleCollision();
+
       getEvents().forEach((event) => {
-        if (event.dataset.intersected) {
-          return;
-        }
-
-        const eventBounds = translatedBounds(event);
-        if (eventBounds === null) {
-          return;
-        }
-        const collided = detectCircularCollision(nextBall, eventBounds);
-        if (collided) {
-          console.log(`[${tickId}] COLLISION DETECTED: ${event.textContent}`);
-
-          collideWithEvent(event, doClick);
-          addParticlesForEvent(event, eventBounds);
-          screenShake();
-          const bounced = handleCollision(
-            nextBall,
-            eventBounds,
-            direction,
-            hasCollided
-          );
-          console.log(`[${tickId}] BOUNCE? ${bounced}: ${event.textContent}`);
-        }
+        maybeCollideWithEvent(event, nextBall, direction, hasCollided, tickId);
       });
 
       translateBall(nextBall);
       addBallTrail(currentBall);
       incrementHueRotation();
-      ballElement.style.setProperty("--hue", HUE_ROTATION + "deg");
+      applyCollisionVisualEffects();
+
+      decrementDeltaBasedState(delta);
+
       currentBall.x = nextBall.x;
       currentBall.y = nextBall.y;
-
-      if (hasCollided.x || hasCollided.y) {
-        BALL_SCALE_COUNT = MAX_BALL_SCALE_COUNT;
-        const count = hasCollided.x ? 1 : 0 + hasCollided.y ? 1 : 0;
-        incrementHueRotation(30 * count);
-      }
-      if (BALL_SCALE_COUNT > 0) {
-        const v =
-          (MAX_BALL_SCALE_COUNT - BALL_SCALE_COUNT) / MAX_BALL_SCALE_COUNT;
-        const scale = Math.floor(10 * (1 + Math.pow(1 - v, 2) * 0.3)) / 10;
-        addTransform(ballElement, `scale(${scale})`, "scale");
-        BALL_SCALE_COUNT -= 1;
-      } else if (BALL_SCALE_COUNT === 0) {
-        removeTransform(ballElement, "scale");
-        BALL_SCALE_COUNT -= 1;
-      }
+      requestAnimationFrame(loop);
     }
 
-    return wrappedIntervalLoop(loop, "GAME");
-  }
+    function beginLoop() {
+      lastFrameTime = performance.now();
+      requestAnimationFrame(loop);
+    }
 
-  let mainInterval;
+    return beginLoop;
+  }
+  const runMainLoop = mainLoop();
+
   let paddleInterval;
   function applyInitialTranslations() {
     translateBall(currentBall);
@@ -869,8 +912,8 @@ const main = function () {
 
   const stopGame = setTimeout(() => {
     console.log("STOPPING");
-    clearInterval(mainInterval);
     clearInterval(paddleInterval);
+    RUN_GAME = false;
   }, STOP_AFTER_THIS_MANY_TICKS * TICK_TIME);
 
   const setup = setTimeout(() => {
@@ -886,7 +929,8 @@ const main = function () {
     if (e.code === "Space" && !started) {
       console.log("STARTING");
       started = true;
-      mainInterval = setInterval(mainLoop(), TICK_TIME);
+      RUN_GAME = true;
+      runMainLoop();
       document.removeEventListener("keydown", listener);
     }
   });
