@@ -179,11 +179,12 @@ particle {
   height: var(--height);
   background-color: var(--color);
   position: fixed;
+  filter: brightness(0.9) hue-rotate(var(--hue-rotation)) saturate(var(--saturation));
   z-index: 1000;
   pointer-events: none;
   will-change: transform, opacity;
-  left: 0;
-  top: 0;
+  left: var(--left);
+  top: var(--top);
 }
 `;
 
@@ -506,11 +507,8 @@ const main = function () {
   }
 
   function createParticle(xIndex, yIndex, bounds, color) {
-    const eventWidth = bounds.right - bounds.left;
-    const eventHeight = bounds.bottom - bounds.top;
-
-    const baseWidth = eventWidth / 10;
-    const baseHeight = eventHeight / 3;
+    const baseWidth = bounds.width / 10;
+    const baseHeight = bounds.height / 3;
     const width = Math.floor(baseWidth * (0.9 + Math.random() * 0.2));
     const height = Math.floor(baseHeight * (0.9 + Math.random() * 0.2));
 
@@ -518,8 +516,8 @@ const main = function () {
     const startingY = bounds.top + baseHeight * yIndex;
     const distanceToTravel = Math.floor(Math.random() * 75 + 25);
 
-    const centerX = bounds.left + eventWidth / 2;
-    const centerY = bounds.top + eventHeight / 2;
+    const centerX = bounds.left + bounds.width / 2;
+    const centerY = bounds.top + bounds.height / 2;
 
     const vector = normalize(
       subtractVectors(
@@ -528,8 +526,8 @@ const main = function () {
       )
     );
 
-    const randX = 1 + Math.random() * 0.2 - 0.1;
-    const randY = 1 + Math.random() * 0.2 - 0.1;
+    const randX = 0.9 + Math.random() * 0.2;
+    const randY = 0.9 + Math.random() * 0.2;
     vector.x *= randX;
     vector.y *= randY;
 
@@ -539,23 +537,21 @@ const main = function () {
         "--width": `${width}px`,
         "--height": `${height}px`,
         "--color": color,
+        "--hue-rotation": (Math.random() - 0.5) * 30 + "deg",
+        "--saturation": 1.2 + Math.random() * 0.5,
+        "--left": startingX + LEFT + "px",
+        "--top": startingY + TOP + "px",
       },
       [],
       "particle"
     );
 
-    const fromX = startingX + LEFT;
-    const fromY = startingY + TOP;
-    const toX = startingX + vector.x * distanceToTravel + LEFT;
-    const toY = startingY + vector.y * distanceToTravel + TOP;
+    const toX = vector.x * distanceToTravel;
+    const toY = vector.y * distanceToTravel;
     const rotation = (Math.random() - 0.5) * 720 + "deg";
-    const hueRotation = (Math.random() - 0.5) * 30 + "deg";
-    const saturation = 1.2 + Math.random() * 0.5;
-    particle.style.filter = `brightness(0.9) hue-rotate(${hueRotation}) saturate(${saturation})`;
     const animation = particle.animate(
       [
         {
-          transform: `translate(${fromX}px, ${fromY}px) rotate(0deg)`,
           opacity: 1,
         },
         {
@@ -769,6 +765,8 @@ const main = function () {
       right: bounds.right - LEFT,
       top: bounds.top - TOP,
       bottom: Math.min(bounds.bottom - TOP, noCollisionZoneTop),
+      width: bounds.width,
+      height: bounds.height,
     };
   };
 
