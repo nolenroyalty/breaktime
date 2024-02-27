@@ -502,11 +502,13 @@ const main = function () {
     hasCollided.x = true;
   }
 
+  const makeJitter = () => 0.9 + Math.random() * 0.2;
+
   function createParticle(xIndex, yIndex, bounds, color) {
     const baseWidth = bounds.width / 10;
     const baseHeight = bounds.height / 3;
-    const width = Math.floor(baseWidth * (0.9 + Math.random() * 0.2));
-    const height = Math.floor(baseHeight * (0.9 + Math.random() * 0.2));
+    const width = Math.floor(baseWidth * makeJitter());
+    const height = Math.floor(baseHeight * makeJitter());
 
     const startingX = bounds.left + baseWidth * xIndex;
     const startingY = bounds.top + baseHeight * yIndex;
@@ -522,10 +524,8 @@ const main = function () {
       )
     );
 
-    const randX = 0.9 + Math.random() * 0.2;
-    const randY = 0.9 + Math.random() * 0.2;
-    vector.x *= randX;
-    vector.y *= randY;
+    vector.x *= makeJitter();
+    vector.y *= makeJitter();
 
     const particle = createElt(
       `particle-${Math.floor(Math.random() * 1000000)}`,
@@ -851,6 +851,9 @@ const main = function () {
     const BALL_SCALE_UP_DURATION = BALL_SCALE_DURATION / 4;
     const BALL_SCALE_DOWN_DURATION = (3 * BALL_SCALE_DURATION) / 4;
     const BALL_MAX_SCALE = 0.3;
+    /* We need to do our scaling and easing by hand because we rely
+    on translating the ball's position in CSS to move that and *don't*
+    want any easing to be applied to that translation. */
     function handleBallScale(currentTime) {
       if (ballScaleBeginTime === null) {
         return;
