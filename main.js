@@ -661,47 +661,66 @@ const main = function () {
   requestAnimationFrame loop. So here we just keep some state around how
   long the paddle has been pressed and we apply and reset that state every
   tick. */
-  const paddlePressedIntervals = {
-    left: { pressedSince: null, past: 0 },
-    right: { pressedSince: null, past: 0 },
-  };
-  const [startPaddleListeners, stopPaddleListeners] = (() => {
-    const handleKeydown = (e) => {
-      if (e.key === "ArrowLeft") {
-        paddlePressedIntervals.left.pressedSince = performance.now();
-      } else if (e.key === "ArrowRight") {
-        paddlePressedIntervals.right.pressedSince = performance.now();
-      }
-    };
-
-    const handleKeyup = (e) => {
-      const addInterval = (key) => {
-        const pressedSince = paddlePressedIntervals[key].pressedSince;
-        if (pressedSince) {
-          const interval = performance.now() - pressedSince;
-          paddlePressedIntervals[key].past += interval;
-          paddlePressedIntervals[key].pressedSince = null;
-        }
+  const [startPaddleListeners, stopPaddleListeners, getDirectionalPaddleDelta] =
+    (() => {
+      const directions = [
+        ["left", "ArrowLeft"],
+        ["right", "ArrowRight"],
+      ];
+      const intervals = {
+        left: { pressedSince: null, past: 0 },
+        right: { pressedSince: null, past: 0 },
+      };
+      const handleKeydown = (e) => {
+        directions.forEach(([key, code]) => {
+          if (e.code === code) {
+            intervals[key].pressedSince = performance.now();
+          }
+        });
       };
 
-      if (e.key === "ArrowLeft") {
-        addInterval("left");
-      } else if (e.key === "ArrowRight") {
-        addInterval("right");
-      }
-    };
+      const handleKeyup = (e) => {
+        const addInterval = (key) => {
+          const pressedSince = intervals[key].pressedSince;
+          if (pressedSince) {
+            const interval = performance.now() - pressedSince;
+            intervals[key].past += interval;
+            intervals[key].pressedSince = null;
+          }
+        };
 
-    const start = () => {
-      document.addEventListener("keydown", handleKeydown);
-      document.addEventListener("keyup", handleKeyup);
-    };
+        directions.forEach(([key, code]) => {
+          if (e.code === code) {
+            addInterval(key);
+          }
+        });
+      };
 
-    const stop = () => {
-      document.removeEventListener("keydown", handleKeydown);
-      document.removeEventListener("keyup", handleKeyup);
-    };
-    return [start, stop];
-  })();
+      const start = () => {
+        document.addEventListener("keydown", handleKeydown);
+        document.addEventListener("keyup", handleKeyup);
+      };
+
+      const stop = () => {
+        document.removeEventListener("keydown", handleKeydown);
+        document.removeEventListener("keyup", handleKeyup);
+      };
+
+      const getAndReset = (key, timestamp) => {
+        let t = intervals[key].past;
+        if (intervals[key].pressedSince) {
+          t += timestamp - intervals[key].pressedSince;
+          intervals[key].pressedSince = timestamp;
+        }
+        intervals[key].past = 0;
+        return t;
+      };
+
+      const getDirectionalDelta = (timestamp) => {
+        return getAndReset("right", timestamp) - getAndReset("left", timestamp);
+      };
+      return [start, stop, getDirectionalDelta];
+    })();
 
   function incrementHueRotation(amount) {
     HUE_ROTATION += amount;
@@ -818,21 +837,9 @@ const main = function () {
       nextBall.x = currentBall.x + BASE_SPEED * direction.x * delta;
       nextBall.y = currentBall.y + BASE_SPEED * direction.y * delta;
 
-      const getAndResetPaddleDelta = (key) => {
-        let t = paddlePressedIntervals[key].past;
-        if (paddlePressedIntervals[key].pressedSince) {
-          t += timestamp - paddlePressedIntervals[key].pressedSince;
-          paddlePressedIntervals[key].pressedSince = timestamp;
-        }
-        paddlePressedIntervals[key].past = 0;
-        return t;
-      };
-      const leftTime = getAndResetPaddleDelta("left");
-      const rightTime = getAndResetPaddleDelta("right");
-
-      const paddleDelta = ((rightTime - leftTime) / TICK_TIME) * PADDLE_SPEED;
-
-      paddleLeft = clamp(0, WIDTH - PADDLE_WIDTH, paddleLeft + paddleDelta);
+      const paddleDelta = getDirectionalPaddleDelta(timestamp);
+      const paddleMovement = (paddleDelta / TICK_TIME) * PADDLE_SPEED;
+      paddleLeft = clamp(0, WIDTH - PADDLE_WIDTH, paddleLeft + paddleMovement);
       translatePaddle();
     }
 
