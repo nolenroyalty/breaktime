@@ -494,11 +494,7 @@ const main = function () {
     const toSubtract = multiplyVector(reflectionVector, 2 * dot);
     let newDirection = subtractVectors(direction, toSubtract);
     console.log(`[${tickId}] OLD DIRECTION: ${JSON.stringify(direction)}`);
-    newDirection = multiplyVector(
-      normalize(newDirection),
-      magnitude({ x: 1, y: 1 })
-    );
-    newDirection = truncateVector(newDirection, 2);
+    newDirection = scaleVectorToRoot2(newDirection);
     console.log(`[${tickId}] NEW DIRECTION: ${JSON.stringify(newDirection)}`);
     direction.x = newDirection.x;
     direction.y = -1 * Math.abs(newDirection.y);
@@ -613,6 +609,11 @@ const main = function () {
 
   function multiplyVector(v, scalar) {
     return { x: v.x * scalar, y: v.y * scalar };
+  }
+
+  function scaleVectorToRoot2(v) {
+    const scaled = multiplyVector(normalize(v), Math.sqrt(2));
+    return truncateVector(scaled, 2);
   }
 
   function wrappedIntervalLoop(fn, label) {
