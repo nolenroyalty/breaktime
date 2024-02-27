@@ -224,15 +224,15 @@ const main = function () {
 
   let currentBall = {
     x: WIDTH / 2,
-    y: HEIGHT - 100 + BALL_SIZE / 2,
+    y: HEIGHT - 100 + RADIUS,
     r: RADIUS,
   };
-  let nextBall = { x: WIDTH / 2, y: HEIGHT - 100 + BALL_SIZE / 2, r: RADIUS };
+  let nextBall = { x: currentBall.x, y: currentBall.y, r: currentBall.r };
 
-  const getBallLeft = (ball) => ball.x - BALL_SIZE / 2;
-  const getBallRight = (ball) => ball.x + BALL_SIZE / 2;
-  const getBallTop = (ball) => ball.y - BALL_SIZE / 2;
-  const getBallBottom = (ball) => ball.y + BALL_SIZE / 2;
+  const getBallLeft = (ball) => ball.x - ball.r;
+  const getBallRight = (ball) => ball.x + ball.r;
+  const getBallTop = (ball) => ball.y - ball.r;
+  const getBallBottom = (ball) => ball.y + ball.r;
 
   function createElt(id, style = {}, classList = [], kind = "div") {
     document.querySelector(`#${id}`)?.remove();
@@ -724,9 +724,8 @@ const main = function () {
     let trailIndex = 0;
 
     const addBallTrail = () => {
-      const { x, y } = currentBall;
-      const left = x - BALL_SIZE / 2;
-      const top = y - BALL_SIZE / 2;
+      const left = getBallLeft(currentBall);
+      const top = getBallTop(currentBall);
       const [trail, oldAnimation] = trails[trailIndex];
       if (oldAnimation) {
         oldAnimation.cancel();
@@ -849,7 +848,7 @@ const main = function () {
     }
 
     let ballScaleBeginTime = null;
-    const BALL_SCALE_DURATION = 300;
+    const BALL_SCALE_DURATION = 250;
     const BALL_SCALE_UP_DURATION = BALL_SCALE_DURATION / 4;
     const BALL_SCALE_DOWN_DURATION = (3 * BALL_SCALE_DURATION) / 4;
     const BALL_MAX_SCALE = 0.3;
@@ -860,6 +859,7 @@ const main = function () {
       const timeElapsed = currentTime - ballScaleBeginTime;
       if (timeElapsed > BALL_SCALE_DURATION) {
         addTransform(ballElement, `scale(1)`, "scale");
+        ballScaleBeginTime = null;
         return;
       }
 
@@ -870,7 +870,7 @@ const main = function () {
       } else {
         const t =
           (timeElapsed - BALL_SCALE_UP_DURATION) / BALL_SCALE_DOWN_DURATION;
-        scale = 1 + (1 - Math.pow(t, 2)) * BALL_MAX_SCALE;
+        scale = 1 + (1 - t) * BALL_MAX_SCALE;
       }
       scale = truncateDigits(scale, 2);
       addTransform(ballElement, `scale(${scale})`, "scale");
