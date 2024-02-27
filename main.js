@@ -324,6 +324,8 @@ const main = function () {
   function translateBall(ball) {
     const left = getBallLeft(ball);
     const top = getBallTop(ball);
+    // ballElement.style.setProperty("--left", LEFT + left);
+    // ballElement.style.setProperty("--top", TOP + top);
     translate(ballElement, left, top);
   }
 
@@ -495,7 +497,7 @@ const main = function () {
       normalize(newDirection),
       magnitude({ x: 1, y: 1 })
     );
-    newDirection = truncateDigits(newDirection);
+    newDirection = truncateVector(newDirection, 2);
     console.log(`[${tickId}] NEW DIRECTION: ${JSON.stringify(newDirection)}`);
     direction.x = newDirection.x;
     direction.y = -1 * Math.abs(newDirection.y);
@@ -598,11 +600,14 @@ const main = function () {
     return v1.x * v2.x + v1.y * v2.y;
   }
 
-  function truncateDigits(v) {
-    const amount = 100;
+  function truncateDigits(v, digits = 2) {
+    const amount = Math.pow(10, digits);
+    return Math.floor(v * amount) / amount;
+  }
+  function truncateVector(v, digits = 2) {
     return {
-      x: Math.round(v.x * amount) / amount,
-      y: Math.round(v.y * amount) / amount,
+      x: truncateDigits(v.x, digits),
+      y: truncateDigits(v.y, digits),
     };
   }
 
@@ -703,7 +708,7 @@ const main = function () {
     const TRAIL_COUNT = 10;
     const makeTrail = () => {
       const id = Math.floor(Math.random() * 1000000);
-      return createElt(
+      const elt = createElt(
         "ball-trail-" + id,
         {
           "--top": TOP,
@@ -713,6 +718,7 @@ const main = function () {
         },
         ["ball", "hidden-ball"]
       );
+      return [elt, null];
     };
     const trails = Array.from({ length: TRAIL_COUNT }, makeTrail);
     let trailIndex = 0;
@@ -721,25 +727,32 @@ const main = function () {
       const { x, y } = currentBall;
       const left = x - BALL_SIZE / 2;
       const top = y - BALL_SIZE / 2;
-      const trail = trails[trailIndex];
+      const [trail, oldAnimation] = trails[trailIndex];
+      if (oldAnimation) {
+        oldAnimation.cancel();
+      }
+
       trail.style.setProperty("--top", TOP + top);
       trail.style.setProperty("--left", LEFT + left);
       trail.style.setProperty("--hue-rotation", HUE_ROTATION + "deg");
-      trail.style.setProperty("display", "revert");
-      trailIndex = (trailIndex + 1) % TRAIL_COUNT;
       const animation = trail.animate(
         [
           {
             opacity: 0.75,
             transform: "scale(0.8)",
+            display: "revert",
           },
           {
             opacity: 0.1,
             transform: "scale(0.3)",
+            display: "revert",
           },
         ],
-        { duration: 1000, easing: "ease" }
+        { duration: 1000, easing: "ease", fill: "both" }
       );
+      trails[trailIndex] = [trail, animation];
+
+      trailIndex = (trailIndex + 1) % TRAIL_COUNT;
     };
 
     return addBallTrail;
@@ -789,8 +802,6 @@ const main = function () {
   function mainLoop() {
     const direction = { x: 1, y: 1 };
     const hasCollided = { x: false, y: false };
-    const MAX_BALL_SCALE_COUNT = 8;
-    let ballScaleFactor = -1;
     let ticksUntilCanPaddleBounce = 0;
     let tickId = 0;
     let lastFrameTime = 0;
@@ -820,9 +831,7 @@ const main = function () {
       if (collidesWithPaddle) {
         if (direction.y < 0) {
           // nroyalty: do a better job here.
-          console.log(
-            `[${tickId}] POTENTIAL BUG: COLLIDED WITH PADDLE WHILE MOVING UP`
-          );
+          console.log(`[${tickId}] COLLIDED WITH PADDLE WHILE MOVING UP`);
           return false;
         } else {
           ticksUntilCanPaddleBounce = 10;
@@ -839,33 +848,50 @@ const main = function () {
       }
     }
 
-    function applyCollisionVisualEffects() {
+    let ballScaleBeginTime = null;
+    const BALL_SCALE_DURATION = 300;
+    const BALL_SCALE_UP_DURATION = BALL_SCALE_DURATION / 4;
+    const BALL_SCALE_DOWN_DURATION = (3 * BALL_SCALE_DURATION) / 4;
+    const BALL_MAX_SCALE = 0.3;
+    function handleBallScale(currentTime) {
+      if (ballScaleBeginTime === null) {
+        return;
+      }
+      const timeElapsed = currentTime - ballScaleBeginTime;
+      if (timeElapsed > BALL_SCALE_DURATION) {
+        addTransform(ballElement, `scale(1)`, "scale");
+        return;
+      }
+
+      let scale;
+      if (timeElapsed <= BALL_SCALE_UP_DURATION) {
+        const t = timeElapsed / BALL_SCALE_UP_DURATION;
+        scale = 1 + (1 - Math.pow(1 - t, 2)) * BALL_MAX_SCALE;
+      } else {
+        const t =
+          (timeElapsed - BALL_SCALE_UP_DURATION) / BALL_SCALE_DOWN_DURATION;
+        scale = 1 + (1 - Math.pow(t, 2)) * BALL_MAX_SCALE;
+      }
+      scale = truncateDigits(scale, 2);
+      addTransform(ballElement, `scale(${scale})`, "scale");
+    }
+
+    function applyCollisionVisualEffects(currentTime) {
       const collisionCount = (hasCollided.x ? 1 : 0) + (hasCollided.y ? 1 : 0);
+
       if (collisionCount > 0) {
         incrementHueRotation(30 * collisionCount);
-        ballScaleFactor = MAX_BALL_SCALE_COUNT;
+        ballScaleBeginTime = currentTime;
       }
 
       ballElement.style.setProperty("--hue", HUE_ROTATION + "deg");
-
-      if (ballScaleFactor > 0) {
-        const v =
-          (MAX_BALL_SCALE_COUNT - ballScaleFactor) / MAX_BALL_SCALE_COUNT;
-        const scale = Math.floor(10 * (1 + Math.pow(1 - v, 2) * 0.3)) / 10;
-        addTransform(ballElement, `scale(${scale})`, "scale");
-      } else if (ballScaleFactor === 0) {
-        removeTransform(ballElement, "scale");
-      }
-    }
-
-    function decrementDeltaBasedState(delta) {
-      ballScaleFactor = Math.max(-1, ballScaleFactor - delta);
+      handleBallScale(currentTime);
     }
 
     function maybeAddBallTrail() {
       if (timeUntilNextBallTrail > 1) {
         addBallTrail();
-        timeUntilNextBallTrail = 0;
+        timeUntilNextBallTrail -= 1;
       }
     }
 
@@ -878,9 +904,10 @@ const main = function () {
           return;
         }
 
-        const delta =
-          Math.floor(10 * ((timestamp - lastFrameTime) / TICK_TIME)) / 10;
+        const timeElapsed = timestamp - lastFrameTime;
+        const delta = truncateDigits(timeElapsed / TICK_TIME, 1);
         lastFrameTime = timestamp;
+
         resetTickState(delta);
         applyForces(direction, delta);
         handlePlayAreaCollision(nextBall, direction, hasCollided);
@@ -897,11 +924,9 @@ const main = function () {
         });
 
         translateBall(nextBall);
-        applyCollisionVisualEffects();
+        applyCollisionVisualEffects(timestamp);
         incrementHueRotation(HUE_ROTATION_INCREASE * delta);
         maybeAddBallTrail();
-
-        decrementDeltaBasedState(delta);
 
         currentBall.x = nextBall.x;
         currentBall.y = nextBall.y;
