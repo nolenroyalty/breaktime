@@ -127,7 +127,7 @@ const css = `
   display: none;
   z-index: 1000;
   filter: blur(6px) hue-rotate(var(--hue-rotation));
-  transition: opacity 1s ease, filter 1s ease, transform 1s ease;
+  transition: opacity 1s ease, filter var(--transform-speed) ease, transform var(--transform-speed) ease;
 }
 
 @keyframes fading-trail {
@@ -694,14 +694,10 @@ const main = function () {
     return wrappedIntervalLoop(loop, "PADDLE");
   }
 
-  function incrementHueRotation(amount = null) {
-    amount = amount === null ? HUE_ROTATION_INCREASE : amount;
+  function incrementHueRotation(amount) {
     HUE_ROTATION += amount;
     HUE_ROTATION = HUE_ROTATION % 360;
-    document.documentElement.style.setProperty(
-      "--hue-rotation",
-      HUE_ROTATION + "deg"
-    );
+    ballElement.style.setProperty("--hue-rotation", HUE_ROTATION + "deg");
   }
 
   /* to avoid adding a new dom element every tick we use a little pool */
@@ -715,7 +711,7 @@ const main = function () {
           "--top": TOP,
           "--left": LEFT,
           "--size": BALL_SIZE,
-          "--transform-speed": `${TICK_TIME * 1.1}ms`,
+          "--transform-speed": `${TICK_TIME}ms`,
         },
         ["ball", "hidden-ball"]
       );
@@ -730,6 +726,7 @@ const main = function () {
       const trail = trails[trailIndex];
       trail.style.setProperty("--top", TOP + top);
       trail.style.setProperty("--left", LEFT + left);
+      trail.style.setProperty("--hue-rotation", HUE_ROTATION + "deg");
       trail.style.setProperty("display", "revert");
       trailIndex = (trailIndex + 1) % TRAIL_COUNT;
       const animation = trail.animate(
@@ -902,8 +899,8 @@ const main = function () {
         });
 
         translateBall(nextBall);
-        incrementHueRotation();
         applyCollisionVisualEffects();
+        incrementHueRotation(HUE_ROTATION_INCREASE * delta);
         maybeAddBallTrail();
 
         decrementDeltaBasedState(delta);
