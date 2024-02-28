@@ -463,9 +463,11 @@ const main = function () {
     console.log(`[${tickId}] COLLIDED WITH CENTER`);
   }
 
-  /* Bouncing off, e.g., the right corner while moving to the left. We want to
-   invert the Y direction and reflect the X over a vector that approaches 45 degrees
-   based on the ball's position relative to the corner of the paddle. */
+  const DO_REFLECTION_COLLISION = false;
+  /* I spent a while trying to reflect the ball off the paddle but found it
+   pretty wonky - you end up needing a ton of constraints to not send the ball
+   at weird angles especially when it's colliding with, e.g., the right corner
+   while moving to the right. I think using the reflection angle is ~fine. */
   function handleBounceAgainstCorner(
     reflectionVector,
     direction,
@@ -473,30 +475,25 @@ const main = function () {
     tickId
   ) {
     reflectionVector = normalize(reflectionVector);
-    let normalizedDirection = normalize(direction);
-    const dot = dotProduct(reflectionVector, normalizedDirection);
-    const toSubtract = multiplyVector(reflectionVector, 2 * dot);
-    let newDirection = subtractVectors(normalizedDirection, toSubtract);
-    console.log(`[${tickId}] OLD DIRECTION: ${JSON.stringify(direction)}`);
-    console.log(
-      `[${tickId}] REFLECTION VECTOR: ${JSON.stringify(reflectionVector)}`
-    );
-    newDirection = scaleVectorToRoot2(newDirection);
+    let newDirection;
+    if (DO_REFLECTION_COLLISION) {
+      let normalizedDirection = normalize(direction);
+      const dot = dotProduct(reflectionVector, normalizedDirection);
+      const toSubtract = multiplyVector(reflectionVector, 2 * dot);
+      newDirection = subtractVectors(normalizedDirection, toSubtract);
+      console.log(`[${tickId}] OLD DIRECTION: ${JSON.stringify(direction)}`);
+      console.log(
+        `[${tickId}] REFLECTION VECTOR: ${JSON.stringify(reflectionVector)}`
+      );
+      newDirection = scaleVectorToRoot2(newDirection);
+    } else {
+      newDirection = scaleVectorToRoot2(reflectionVector);
+    }
     console.log(`[${tickId}] NEW DIRECTION: ${JSON.stringify(newDirection)}`);
     direction.x = newDirection.x;
     direction.y = newDirection.y;
     hasCollided.x = true;
     hasCollided.y = true;
-  }
-
-  /* Bouncing off, e.g., the right corner while moving to the right should behave
-  like a center bounce. If we use our scaled vector to reflect we'll simulate
-  a glacing blow that will send the ball off at a shallow angle without
-  inverting its y direction. */
-  function handleBounceWithCorner(direction, hasCollided, tickId) {
-    direction.y = -1 * Math.abs(direction.y);
-    hasCollided.y = true;
-    console.log(`[${tickId}] BOUNCED WITH CORNER`);
   }
 
   function updateForPaddleCollision(
@@ -508,7 +505,7 @@ const main = function () {
   ) {
     const leftThird = paddleLeft + PADDLE_WIDTH / 3;
     const rightThird = paddleLeft + (PADDLE_WIDTH / 3) * 2;
-    if (ball.x < leftThird && direction.x > 0) {
+    if (ball.x < leftThird) {
       const distanceFromLeft = Math.max(0, ball.x - paddleLeft);
       const scaledToPaddle = distanceFromLeft / (PADDLE_WIDTH / 3);
       const x = -8 * (1 - scaledToPaddle);
@@ -519,9 +516,7 @@ const main = function () {
         hasCollided,
         tickId
       );
-    } else if (ball.x < leftThird) {
-      handleBounceWithCorner(direction, hasCollided, tickId);
-    } else if (ball.x > rightThird && direction.x < 0) {
+    } else if (ball.x > rightThird) {
       const distanceFromTheRight = Math.min(
         PADDLE_WIDTH / 3,
         ball.x - rightThird
@@ -535,8 +530,6 @@ const main = function () {
         hasCollided,
         tickId
       );
-    } else if (ball.x > rightThird) {
-      handleBounceWithCorner(direction, hasCollided, tickId);
     } else {
       handleCenterCollision(direction, hasCollided, tickId);
     }
@@ -910,22 +903,23 @@ const main = function () {
 
       const paddleBox = makePaddleBox(paddleLeft, paddleTop);
       const collidesWithPaddle = detectCircularCollision(nextBall, paddleBox);
-
-      if (collidesWithPaddle) {
-        if (direction.y < 0) {
-          console.log(`[${tickId}] COLLIDED WITH PADDLE WHILE MOVING UP`);
-        }
-        ticksUntilCanPaddleBounce = 10;
-        console.log(`[${tickId}] PADDLE COLLISION DETECTED`);
-        updateForPaddleCollision(
-          nextBall,
-          paddleLeft,
-          direction,
-          hasCollided,
-          tickId
-        );
-        return true;
+      if (!collidesWithPaddle) {
+        return false;
       }
+
+      if (direction.y < 0) {
+        console.log(`[${tickId}] COLLIDED WITH PADDLE WHILE MOVING UP`);
+      }
+      ticksUntilCanPaddleBounce = 10;
+      console.log(`[${tickId}] PADDLE COLLISION DETECTED`);
+      updateForPaddleCollision(
+        nextBall,
+        paddleLeft,
+        direction,
+        hasCollided,
+        tickId
+      );
+      return true;
     }
 
     let ballScaleBeginTime = null;
@@ -942,7 +936,8 @@ const main = function () {
       }
       const timeElapsed = currentTime - ballScaleBeginTime;
       if (timeElapsed > BALL_SCALE_DURATION) {
-        addTransform(ballElement, `scale(1)`, "scale");
+        // addTransform(ballElement, `scale(1)`, "scale");
+        removeTransform(ballElement, "scale");
         ballScaleBeginTime = null;
         return;
       }
@@ -972,6 +967,51 @@ const main = function () {
       handleBallScale(currentTime);
     }
 
+    let paddleScaleCollisionTime = null;
+    const PADDLE_SCALE_UP_DURATION = BALL_SCALE_UP_DURATION * 1.5;
+    const PADDLE_SCALE_DOWN_DURATION = 2 * BALL_SCALE_DOWN_DURATION;
+    const PADDLE_SCALE_DURATION =
+      PADDLE_SCALE_UP_DURATION + PADDLE_SCALE_DOWN_DURATION;
+    const PADDLE_MAX_Y_SCALE = -0.2;
+    const PADDLE_MAX_X_SCALE = 0.1;
+    function applyPaddleCollisionEffects(collidedWithPaddle, currentTime) {
+      if (collidedWithPaddle) {
+        paddleScaleCollisionTime = currentTime;
+      }
+      if (paddleScaleCollisionTime === null) {
+        return;
+      }
+      const timeElapsed = currentTime - paddleScaleCollisionTime;
+      if (timeElapsed > PADDLE_SCALE_DURATION) {
+        removeTransform(paddle, "scale");
+        paddleScaleCollisionTime = null;
+        return;
+      }
+
+      let scaleX;
+      let scaleY;
+      if (timeElapsed <= PADDLE_SCALE_UP_DURATION) {
+        const t = timeElapsed / PADDLE_SCALE_UP_DURATION;
+        scaleX = 1 + (1 - Math.pow(1 - t, 2)) * PADDLE_MAX_X_SCALE;
+        scaleY = 1 + (1 - Math.pow(1 - t, 2)) * PADDLE_MAX_Y_SCALE;
+      } else {
+        const t =
+          (timeElapsed - PADDLE_SCALE_UP_DURATION) / PADDLE_SCALE_DOWN_DURATION;
+        scaleX =
+          1 +
+          PADDLE_MAX_X_SCALE -
+          (1 - Math.pow(1 - t, 2)) * PADDLE_MAX_X_SCALE;
+
+        scaleY =
+          1 +
+          PADDLE_MAX_Y_SCALE -
+          (1 - Math.pow(1 - t, 2)) * PADDLE_MAX_Y_SCALE;
+      }
+      scaleX = truncateDigits(scaleX, 2);
+      scaleY = truncateDigits(scaleY, 2);
+      addTransform(paddle, `scale(${scaleX}, ${scaleY})`, "scale");
+    }
+
     function maybeAddBallTrail() {
       if (timeUntilNextBallTrail > 1) {
         addBallTrail();
@@ -997,7 +1037,7 @@ const main = function () {
         resetTickState(delta);
         applyForces(direction, timestamp, delta);
         handlePlayAreaCollision(nextBall, direction, hasCollided);
-        handlePaddleCollision();
+        const collidedWithPaddle = handlePaddleCollision();
 
         getEvents().forEach((event) => {
           maybeCollideWithEvent(
@@ -1011,6 +1051,7 @@ const main = function () {
 
         translateBall(nextBall);
         applyCollisionVisualEffects(timestamp);
+        applyPaddleCollisionEffects(collidedWithPaddle, timestamp);
         incrementHueRotation(HUE_ROTATION_INCREASE * delta);
         maybeAddBallTrail();
 
