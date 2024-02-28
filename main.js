@@ -456,34 +456,22 @@ const main = function () {
     }
   }
 
-  /* nroyalty: there are still some real bugs here :/
-  nroyalty: remove math.abs hack
-   */
-  function updateForPaddleCollision(
-    ball,
-    paddleLeft,
+  /* Reflecting off the center 3rd of the paddle just inverts the Y direction. */
+  function handleCenterCollision(direction, hasCollided, tickId) {
+    direction.y = -1 * Math.abs(direction.y);
+    hasCollided.y = true;
+    console.log(`[${tickId}] COLLIDED WITH CENTER`);
+  }
+
+  /* Bouncing off, e.g., the right corner while moving to the left. We want to
+   invert the Y direction and reflect the X over a vector that approaches 45 degrees
+   based on the ball's position relative to the corner of the paddle. */
+  function handleBounceAgainstCorner(
+    reflectionVector,
     direction,
     hasCollided,
     tickId
   ) {
-    const paddleCenter = paddleLeft + PADDLE_WIDTH / 2;
-    const leftThird = paddleLeft + PADDLE_WIDTH / 3;
-    const rightThird = paddleLeft + (PADDLE_WIDTH / 3) * 2;
-    let reflectionVector = { x: 0, y: -1 };
-    if (ball.x < leftThird) {
-      const distanceFromLeft = Math.max(0, ball.x - paddleLeft);
-      const scaledToPaddle = distanceFromLeft / (PADDLE_WIDTH / 3);
-      const x = -8 * (1 - scaledToPaddle);
-      reflectionVector = { x, y: -8 };
-    } else if (ball.x > rightThird) {
-      const distanceFromTheRight = Math.min(
-        PADDLE_WIDTH / 3,
-        ball.x - rightThird
-      );
-      const scaledToPaddle = distanceFromTheRight / (PADDLE_WIDTH / 3);
-      const x = 8 * scaledToPaddle;
-      reflectionVector = { x, y: -8 };
-    }
     reflectionVector = normalize(reflectionVector);
     let normalizedDirection = normalize(direction);
     const dot = dotProduct(reflectionVector, normalizedDirection);
@@ -496,17 +484,70 @@ const main = function () {
     newDirection = scaleVectorToRoot2(newDirection);
     console.log(`[${tickId}] NEW DIRECTION: ${JSON.stringify(newDirection)}`);
     direction.x = newDirection.x;
-    if (newDirection.y > 0) {
+    direction.y = newDirection.y;
+    hasCollided.x = true;
+    hasCollided.y = true;
+  }
+
+  /* Bouncing off, e.g., the right corner while moving to the right should behave
+  like a center bounce. If we use our scaled vector to reflect we'll simulate
+  a glacing blow that will send the ball off at a shallow angle without
+  inverting its y direction. */
+  function handleBounceWithCorner(direction, hasCollided, tickId) {
+    direction.y = -1 * Math.abs(direction.y);
+    hasCollided.y = true;
+    console.log(`[${tickId}] BOUNCED WITH CORNER`);
+  }
+
+  function updateForPaddleCollision(
+    ball,
+    paddleLeft,
+    direction,
+    hasCollided,
+    tickId
+  ) {
+    const leftThird = paddleLeft + PADDLE_WIDTH / 3;
+    const rightThird = paddleLeft + (PADDLE_WIDTH / 3) * 2;
+    if (ball.x < leftThird && direction.x > 0) {
+      const distanceFromLeft = Math.max(0, ball.x - paddleLeft);
+      const scaledToPaddle = distanceFromLeft / (PADDLE_WIDTH / 3);
+      const x = -8 * (1 - scaledToPaddle);
+      const reflectionVector = { x, y: -8 };
+      handleBounceAgainstCorner(
+        reflectionVector,
+        direction,
+        hasCollided,
+        tickId
+      );
+    } else if (ball.x < leftThird) {
+      handleBounceWithCorner(direction, hasCollided, tickId);
+    } else if (ball.x > rightThird && direction.x < 0) {
+      const distanceFromTheRight = Math.min(
+        PADDLE_WIDTH / 3,
+        ball.x - rightThird
+      );
+      const scaledToPaddle = distanceFromTheRight / (PADDLE_WIDTH / 3);
+      const x = 8 * scaledToPaddle;
+      const reflectionVector = { x, y: -8 };
+      handleBounceAgainstCorner(
+        reflectionVector,
+        direction,
+        hasCollided,
+        tickId
+      );
+    } else if (ball.x > rightThird) {
+      handleBounceWithCorner(direction, hasCollided, tickId);
+    } else {
+      handleCenterCollision(direction, hasCollided, tickId);
+    }
+    if (direction.y > 0) {
       console.log(
-        `[${tickId}] BUG? PADDLE COLLISION PRODUCED DOWNWARD MOTION ${JSON.stringify(
-          newDirection
+        `[${tickId}] BUG? MOVING DOWN AFTER PADDLE COLLISION ${JSON.stringify(
+          direction
         )}`
       );
-      newDirection.y = -1 * Math.abs(newDirection.y);
+      direction.y *= -1;
     }
-    direction.y = newDirection.y;
-    hasCollided.y = true;
-    hasCollided.x = true;
   }
 
   const makeJitter = () => 0.9 + Math.random() * 0.2;
@@ -872,21 +913,18 @@ const main = function () {
 
       if (collidesWithPaddle) {
         if (direction.y < 0) {
-          // nroyalty: do a better job here.
           console.log(`[${tickId}] COLLIDED WITH PADDLE WHILE MOVING UP`);
-          return false;
-        } else {
-          ticksUntilCanPaddleBounce = 10;
-          console.log(`[${tickId}] PADDLE COLLISION DETECTED`);
-          updateForPaddleCollision(
-            nextBall,
-            paddleLeft,
-            direction,
-            hasCollided,
-            tickId
-          );
-          return true;
         }
+        ticksUntilCanPaddleBounce = 10;
+        console.log(`[${tickId}] PADDLE COLLISION DETECTED`);
+        updateForPaddleCollision(
+          nextBall,
+          paddleLeft,
+          direction,
+          hasCollided,
+          tickId
+        );
+        return true;
       }
     }
 
