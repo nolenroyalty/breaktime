@@ -484,14 +484,27 @@ const main = function () {
       const x = 8 * scaledToPaddle;
       reflectionVector = { x, y: -8 };
     }
-    const dot = dotProduct(reflectionVector, direction);
+    reflectionVector = normalize(reflectionVector);
+    let normalizedDirection = normalize(direction);
+    const dot = dotProduct(reflectionVector, normalizedDirection);
     const toSubtract = multiplyVector(reflectionVector, 2 * dot);
-    let newDirection = subtractVectors(direction, toSubtract);
+    let newDirection = subtractVectors(normalizedDirection, toSubtract);
     console.log(`[${tickId}] OLD DIRECTION: ${JSON.stringify(direction)}`);
+    console.log(
+      `[${tickId}] REFLECTION VECTOR: ${JSON.stringify(reflectionVector)}`
+    );
     newDirection = scaleVectorToRoot2(newDirection);
     console.log(`[${tickId}] NEW DIRECTION: ${JSON.stringify(newDirection)}`);
     direction.x = newDirection.x;
-    direction.y = -1 * Math.abs(newDirection.y);
+    if (newDirection.y > 0) {
+      console.log(
+        `[${tickId}] BUG? PADDLE COLLISION PRODUCED DOWNWARD MOTION ${JSON.stringify(
+          newDirection
+        )}`
+      );
+      newDirection.y = -1 * Math.abs(newDirection.y);
+    }
+    direction.y = newDirection.y;
     hasCollided.y = true;
     hasCollided.x = true;
   }
@@ -581,8 +594,6 @@ const main = function () {
   }
 
   function dotProduct(v1, v2) {
-    v1 = normalize(v1);
-    v2 = normalize(v2);
     return v1.x * v2.x + v1.y * v2.y;
   }
 
@@ -984,7 +995,6 @@ const main = function () {
   }
   const runMainLoop = mainLoop();
 
-  let paddleInterval;
   function applyInitialTranslations() {
     translateBall(currentBall);
     translate(paddle, paddleLeft, paddleTop);
