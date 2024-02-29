@@ -228,18 +228,22 @@ const main = function () {
   const PADDLE_HEIGHT = 20;
   const HUE_PER_TICK = 360 / (10000 / TICK_TIME);
 
-  // It's gross but these need to be global :/
-  let paddleLeft = WIDTH / 2 - 50;
-  const paddleTop = HEIGHT - 22;
-  const hueRotation = { ball: 0, paddle: 0 };
   let RUN_GAME = false;
-
+  const hueRotation = { ball: 0, paddle: 0 };
   let currentBall = {
     x: WIDTH / 2,
     y: HEIGHT - 100 + RADIUS,
     r: RADIUS,
   };
   let nextBall = { x: currentBall.x, y: currentBall.y, r: currentBall.r };
+  const paddleRect = {
+    left: WIDTH / 2 - PADDLE_WIDTH / 2,
+    top: HEIGHT - 22,
+    width: PADDLE_WIDTH,
+    height: PADDLE_HEIGHT,
+    right: WIDTH / 2 + PADDLE_WIDTH / 2,
+    bottom: HEIGHT - 22 + PADDLE_HEIGHT,
+  };
 
   const getBallLeft = (ball) => ball.x - ball.r;
   const getBallRight = (ball) => ball.x + ball.r;
@@ -291,7 +295,7 @@ const main = function () {
     ["ball", "transparent"]
   );
 
-  const paddle = createElt(
+  const paddleElement = createElt(
     "_paddle",
     {
       "--top": TOP,
@@ -340,7 +344,7 @@ const main = function () {
   }
 
   function translatePaddle() {
-    translate(paddle, paddleLeft, paddleTop);
+    translate(paddleElement, paddleRect.left, paddleRect.top);
   }
 
   function rotateForVector(elt, dx, dy) {
@@ -352,15 +356,6 @@ const main = function () {
 
     addTransform(elt, `rotate(${angle}deg)`, "rotate");
   }
-  const makeBox = (left, top, width, height) => ({
-    left,
-    right: left + width,
-    top,
-    bottom: top + height,
-  });
-
-  const makePaddleBox = (left, top) =>
-    makeBox(left, top, PADDLE_WIDTH, PADDLE_HEIGHT);
 
   function getClosestPointToCircle(circle, rect) {
     const closestX = clamp(rect.left, rect.right, circle.x);
@@ -507,15 +502,15 @@ const main = function () {
 
   function updateForPaddleCollision(
     ball,
-    paddleLeft,
+    paddleRect,
     direction,
     hasCollided,
     tickId
   ) {
-    const leftThird = paddleLeft + PADDLE_WIDTH / 3;
-    const rightThird = paddleLeft + (PADDLE_WIDTH / 3) * 2;
+    const leftThird = paddleRect.left + PADDLE_WIDTH / 3;
+    const rightThird = paddleRect.left + (PADDLE_WIDTH / 3) * 2;
     if (ball.x < leftThird) {
-      const distanceFromLeft = Math.max(0, ball.x - paddleLeft);
+      const distanceFromLeft = Math.max(0, ball.x - paddleRect.left);
       const scaledToPaddle = distanceFromLeft / (PADDLE_WIDTH / 3);
       const x = -8 * (1 - scaledToPaddle);
       const reflectionVector = { x, y: -8 };
@@ -655,7 +650,7 @@ const main = function () {
   }
 
   function addParticlesForPaddleCollision(direction) {
-    const computedStyle = window.getComputedStyle(paddle);
+    const computedStyle = window.getComputedStyle(paddleElement);
     const color = computedStyle.backgroundColor || "slategrey";
     for (let i = 0; i < 15; i++) {
       const vectorX = (Math.random() - 0.5) * 2 + direction.x * 0.5;
@@ -665,15 +660,15 @@ const main = function () {
       });
       addParticle({
         x: nextBall.x + 25 * (Math.random() - 0.5),
-        y: paddleTop,
-        width: 4 * makeJitter(),
-        height: 4 * makeJitter(),
+        y: paddleRect.top,
+        width: 6 * makeJitter(),
+        height: 5 * makeJitter(),
         vector,
         distance: Math.random() * 25 + 50,
         rotation: (Math.random() - 0.5) * 720 + "deg",
         color,
         hueRotation: hueRotation.paddle + "deg",
-        duration: 250 + Math.random() * 200,
+        duration: 250 + Math.random() * 150,
         delay: Math.random() * 50,
         easing: "ease-out",
       });
@@ -854,7 +849,7 @@ const main = function () {
       "--hue-rotation",
       Math.floor(hueRotation.ball) + "deg"
     );
-    paddle.style.setProperty(
+    paddleElement.style.setProperty(
       "--hue-rotation",
       Math.floor(hueRotation.paddle) + "deg"
     );
@@ -971,7 +966,12 @@ const main = function () {
 
       const paddleDelta = getDirectionalPaddleDelta(timestamp);
       const paddleMovement = (paddleDelta / TICK_TIME) * PADDLE_SPEED;
-      paddleLeft = clamp(0, WIDTH - PADDLE_WIDTH, paddleLeft + paddleMovement);
+      paddleRect.left = clamp(
+        0,
+        WIDTH - PADDLE_WIDTH,
+        paddleRect.left + paddleMovement
+      );
+      paddleRect.right = paddleRect.left + PADDLE_WIDTH;
     }
 
     function resetTickState(delta) {
@@ -987,8 +987,7 @@ const main = function () {
         return false;
       }
 
-      const paddleBox = makePaddleBox(paddleLeft, paddleTop);
-      const collidesWithPaddle = detectCircularCollision(nextBall, paddleBox);
+      const collidesWithPaddle = detectCircularCollision(nextBall, paddleRect);
       if (!collidesWithPaddle) {
         return false;
       }
@@ -1000,7 +999,7 @@ const main = function () {
       console.log(`[${tickId}] PADDLE COLLISION DETECTED`);
       updateForPaddleCollision(
         nextBall,
-        paddleLeft,
+        paddleRect,
         direction,
         hasCollided,
         tickId
@@ -1097,10 +1096,10 @@ const main = function () {
       applyValue: (value) => {
         const x = truncateDigits(value.x, 2);
         const y = truncateDigits(value.y, 2);
-        addTransform(paddle, `scale(${x}, ${y})`, "scale");
+        addTransform(paddleElement, `scale(${x}, ${y})`, "scale");
       },
       cleanUp: () => {
-        removeTransform(paddle, "scale");
+        removeTransform(paddleElement, "scale");
       },
     });
 
@@ -1183,7 +1182,7 @@ const main = function () {
 
   function applyInitialTranslations() {
     translateBall(currentBall);
-    translate(paddle, paddleLeft, paddleTop);
+    translatePaddle();
   }
   applyInitialTranslations();
 
@@ -1195,7 +1194,7 @@ const main = function () {
   const setup = setTimeout(() => {
     ballElement.classList.remove("transparent");
     playArea.classList.remove("transparent");
-    paddle.classList.remove("transparent");
+    paddleElement.classList.remove("transparent");
   }, 1);
 
   const listener = document.addEventListener("keydown", (e) => {
