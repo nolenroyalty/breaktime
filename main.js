@@ -190,6 +190,7 @@ particle {
   will-change: transform, opacity;
   left: var(--left);
   top: var(--top);
+  display: var(--display);
 }
 `;
 
@@ -549,56 +550,71 @@ const main = function () {
 
   const makeJitter = () => 0.9 + Math.random() * 0.2;
 
-  function addParticle({
-    x,
-    y,
-    width,
-    height,
-    vector,
-    distance,
-    rotation,
-    color,
-    hueRotation,
-    duration,
-    delay,
-    easing,
-  }) {
-    const particle = createElt(
-      `particle-${Math.floor(Math.random() * 1000000)}`,
-      {
-        "--width": `${width}px`,
-        "--height": `${height}px`,
-        "--color": color,
-        "--hue-rotation": hueRotation,
-        "--saturation": 1.2 + Math.random() * 0.5,
-        "--left": x + LEFT + "px",
-        "--top": y + TOP + "px",
-      },
-      [],
-      "particle"
-    );
-    const toX = vector.x * distance;
-    const toY = vector.y * distance;
-    const animation = particle.animate(
-      [
-        {
-          opacity: 1,
-        },
-        {
-          transform: `translate(${toX}px, ${toY}px) rotate(${rotation})`,
-          opacity: 0.35,
-        },
-      ],
-      {
-        duration,
-        easing,
-        delay,
-      }
-    );
-    animation.onfinish = () => {
-      particle.remove();
+  function makeAddParticle() {
+    const PARTICLE_COUNT = 300;
+    let currentParticleIdx = 0;
+    const makeParticle = (_, id) => {
+      const elt = createElt(`particle-${id}`, {}, ["particle"], "particle");
+      return [elt, null];
     };
+    const particles = Array.from({ length: PARTICLE_COUNT }, makeParticle);
+
+    const addParticle = ({
+      x,
+      y,
+      width,
+      height,
+      vector,
+      distance,
+      rotation,
+      color,
+      hueRotation,
+      duration,
+      delay,
+      easing,
+    }) => {
+      const [currentParticle, currentAnimation] = particles[currentParticleIdx];
+
+      if (currentAnimation) {
+        // nroyalty: do I need to briefly hide the particle here?
+        currentAnimation.cancel();
+      }
+
+      [
+        ["--width", `${width}px`],
+        ["--height", `${height}px`],
+        ["--color", color],
+        ["--hue-rotation", hueRotation],
+        ["--saturation", 1.2 + Math.random() * 0.5],
+        ["--left", x + LEFT + "px"],
+        ["--top", y + TOP + "px"],
+        ["--display", "block"],
+      ].forEach(([propertyName, propertyValue]) => {
+        currentParticle.style.setProperty(propertyName, propertyValue);
+      });
+
+      const toX = vector.x * distance;
+      const toY = vector.y * distance;
+      const startingAnimation = { opacity: 1 };
+      const endingAnimation = {
+        transform: `translate(${toX}px, ${toY}px) rotate(${rotation})`,
+        opacity: 0.35,
+      };
+      const animation = currentParticle.animate(
+        [startingAnimation, endingAnimation],
+        { duration, delay, easing }
+      );
+      animation.onfinish = () => {
+        currentParticle.style.setProperty("--display", "none");
+      };
+
+      particles[currentParticleIdx] = [currentParticle, animation];
+      currentParticleIdx = (currentParticleIdx + 1) % PARTICLE_COUNT;
+    };
+
+    return addParticle;
   }
+  const addParticle = makeAddParticle();
 
   function createEventParticle(xIndex, yIndex, bounds, color) {
     const baseWidth = bounds.width / 10;
@@ -737,7 +753,7 @@ const main = function () {
     const sidebar = mainElt.parentElement.parentElement.children[0];
 
     function shake(currentTime) {
-      [body].forEach((target) => {
+      [mainElt].forEach((target) => {
         if (!target) {
           return;
         }
