@@ -210,6 +210,11 @@ const main = function () {
   const grid = mainElt.querySelector("div[role='grid']");
 
   const bottomPlayArea = grid.children[1].getBoundingClientRect();
+
+  /* We want to make sure you can delete events at the end of the day,
+  so we need to push up the bottom boundary of the bottom of the event
+  container. We grab this element to do that. */
+  const playAreaToRestrict = grid.children[1].children[0];
   /* This only exists if there are all-day events on the calendar. */
   const topPlayArea =
     grid
@@ -1094,7 +1099,7 @@ const main = function () {
       maybeScaleBall(currentTime);
     }
 
-    const PADDLE_MAX_Y_SCALE = -0.25;
+    const PADDLE_MAX_Y_SCALE = -0.2;
     const PADDLE_MAX_X_SCALE = 0.05;
     const [beginTweenPaddle, maybeTweenPaddle] = makeTweenUpDown({
       timeUp: BALL_SCALE_UP_DURATION,
@@ -1211,6 +1216,8 @@ const main = function () {
     ballElement.classList.remove("transparent");
     playArea.classList.remove("transparent");
     paddleElement.classList.remove("transparent");
+    playAreaToRestrict.style.position = "relative";
+    playAreaToRestrict.style.bottom = "150px";
   }, 1);
 
   const listener = document.addEventListener("keydown", (e) => {
