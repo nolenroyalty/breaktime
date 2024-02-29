@@ -198,15 +198,19 @@ const main = function () {
   const RADIUS = BALL_SIZE / 2;
   const TICK_TIME = 50;
   const BASE_SPEED = 10;
-  const PADDLE_SPEED = 10;
+  const PADDLE_SPEED = 12.5;
   const STOP_AFTER_THIS_MANY_TICKS = 2000;
 
   const mainElt = document.querySelector("div[role='main']");
   const grid = mainElt.querySelector("div[role='grid']");
-  const topPlayArea = grid
-    .querySelector("div[role='row'][aria-hidden='false']")
-    .getBoundingClientRect();
+
   const bottomPlayArea = grid.children[1].getBoundingClientRect();
+  /* This only exists if there are all-day events on the calendar. */
+  const topPlayArea =
+    grid
+      .querySelector("div[role='row'][aria-hidden='false']")
+      ?.getBoundingClientRect() || bottomPlayArea;
+
   const LEFT = Math.min(topPlayArea.left, bottomPlayArea.left);
   const TOP = topPlayArea.top;
   const RIGHT = Math.max(topPlayArea.right, bottomPlayArea.right);
@@ -878,14 +882,13 @@ const main = function () {
     let lastFrameTime = 0;
     let timeUntilNextBallTrail = 0;
 
-    function applyForces(direction, timestamp, delta) {
+    function applyDirectionDeltas(direction, timestamp, delta) {
       nextBall.x = currentBall.x + BASE_SPEED * direction.x * delta;
       nextBall.y = currentBall.y + BASE_SPEED * direction.y * delta;
 
       const paddleDelta = getDirectionalPaddleDelta(timestamp);
       const paddleMovement = (paddleDelta / TICK_TIME) * PADDLE_SPEED;
       paddleLeft = clamp(0, WIDTH - PADDLE_WIDTH, paddleLeft + paddleMovement);
-      translatePaddle();
     }
 
     function resetTickState(delta) {
@@ -922,94 +925,110 @@ const main = function () {
       return true;
     }
 
-    let ballScaleBeginTime = null;
-    const BALL_SCALE_DURATION = 250;
-    const BALL_SCALE_UP_DURATION = BALL_SCALE_DURATION / 4;
-    const BALL_SCALE_DOWN_DURATION = (3 * BALL_SCALE_DURATION) / 4;
-    const BALL_MAX_SCALE = 0.3;
-    /* We need to do our scaling and easing by hand because we rely
-    on translating the ball's position in CSS to move that and *don't*
-    want any easing to be applied to that translation. */
-    function handleBallScale(currentTime) {
-      if (ballScaleBeginTime === null) {
-        return;
-      }
-      const timeElapsed = currentTime - ballScaleBeginTime;
-      if (timeElapsed > BALL_SCALE_DURATION) {
-        // addTransform(ballElement, `scale(1)`, "scale");
-        removeTransform(ballElement, "scale");
-        ballScaleBeginTime = null;
-        return;
-      }
+    const easeOut = (t, factor = 2) => 1 - Math.pow(1 - t, factor);
+    const easeIn = (t, factor = 2) => Math.pow(t, factor);
 
-      let scale;
-      if (timeElapsed <= BALL_SCALE_UP_DURATION) {
-        const t = timeElapsed / BALL_SCALE_UP_DURATION;
-        scale = 1 + (1 - Math.pow(1 - t, 2)) * BALL_MAX_SCALE;
-      } else {
-        const t =
-          (timeElapsed - BALL_SCALE_UP_DURATION) / BALL_SCALE_DOWN_DURATION;
-        scale = 1 + (1 - t) * BALL_MAX_SCALE;
-      }
-      scale = truncateDigits(scale, 2);
-      addTransform(ballElement, `scale(${scale})`, "scale");
+    /* We need to do some of our scaling and easing by hand because we rely
+    on translating positions in CSS to move that and *don't*
+    want any easing to be applied to that translation. */
+    function makeTweenUpDown({
+      timeUp,
+      timeDown,
+      valueUp,
+      valueDown,
+      applyValue,
+      cleanUp,
+    }) {
+      let beginTime = null;
+      const totalTime = timeUp + timeDown;
+
+      const beginTween = (now) => {
+        beginTime = now;
+      };
+
+      const maybeTween = (currentTime) => {
+        if (beginTime === null) {
+          return;
+        }
+        const timeElapsed = currentTime - beginTime;
+        if (timeElapsed > totalTime) {
+          cleanUp();
+          beginTime = null;
+          return;
+        }
+        if (timeElapsed <= timeUp) {
+          const t = timeElapsed / timeUp;
+          applyValue(valueUp(t));
+        } else {
+          const t = (timeElapsed - timeUp) / timeDown;
+          applyValue(valueDown(t));
+        }
+      };
+
+      return [beginTween, maybeTween];
     }
+
+    const BALL_MAX_SCALE = 0.3;
+    const BALL_SCALE_UP_DURATION = 75;
+    const BALL_SCALE_DOWN_DURATION = 3 * BALL_SCALE_UP_DURATION;
+    const [beginScaleBall, maybeScaleBall] = makeTweenUpDown({
+      timeUp: BALL_SCALE_UP_DURATION,
+      timeDown: BALL_SCALE_DOWN_DURATION,
+      valueUp: (t) => 1 + easeOut(t) * BALL_MAX_SCALE,
+      valueDown: (t) => 1 + (1 - t) * BALL_MAX_SCALE,
+      applyValue: (value) => {
+        const x = truncateDigits(value, 2);
+        addTransform(ballElement, `scale(${x})`, "scale");
+      },
+      cleanUp: () => {
+        removeTransform(ballElement, "scale");
+      },
+    });
 
     function applyCollisionVisualEffects(currentTime) {
       const collisionCount = (hasCollided.x ? 1 : 0) + (hasCollided.y ? 1 : 0);
 
       if (collisionCount > 0) {
         incrementHueRotation(30 * collisionCount);
-        ballScaleBeginTime = currentTime;
+        beginScaleBall(currentTime);
       }
 
       ballElement.style.setProperty("--hue", HUE_ROTATION + "deg");
-      handleBallScale(currentTime);
+      maybeScaleBall(currentTime);
     }
 
-    let paddleScaleCollisionTime = null;
-    const PADDLE_SCALE_UP_DURATION = BALL_SCALE_UP_DURATION * 1.5;
-    const PADDLE_SCALE_DOWN_DURATION = 2 * BALL_SCALE_DOWN_DURATION;
-    const PADDLE_SCALE_DURATION =
-      PADDLE_SCALE_UP_DURATION + PADDLE_SCALE_DOWN_DURATION;
     const PADDLE_MAX_Y_SCALE = -0.2;
     const PADDLE_MAX_X_SCALE = 0.1;
+    const [beginTweenPaddle, maybeTweenPaddle] = makeTweenUpDown({
+      timeUp: BALL_SCALE_UP_DURATION * 1.25,
+      timeDown: BALL_SCALE_DOWN_DURATION * 1.25,
+      valueUp: (t) => {
+        const x = 1 + easeOut(t) * PADDLE_MAX_X_SCALE;
+        const y = 1 + easeOut(t) * PADDLE_MAX_Y_SCALE;
+        return { x, y };
+      },
+      valueDown: (t) => {
+        // const x = 1 + (1 - t) * PADDLE_MAX_X_SCALE;
+        // const y = 1 + (1 - t) * PADDLE_MAX_Y_SCALE;
+        const x = 1 + PADDLE_MAX_X_SCALE - easeIn(t) * PADDLE_MAX_X_SCALE;
+        const y = 1 + PADDLE_MAX_Y_SCALE - easeIn(t) * PADDLE_MAX_Y_SCALE;
+        return { x, y };
+      },
+      applyValue: (value) => {
+        const x = truncateDigits(value.x, 2);
+        const y = truncateDigits(value.y, 2);
+        addTransform(paddle, `scale(${x}, ${y})`, "scale");
+      },
+      cleanUp: () => {
+        removeTransform(paddle, "scale");
+      },
+    });
+
     function applyPaddleCollisionEffects(collidedWithPaddle, currentTime) {
       if (collidedWithPaddle) {
-        paddleScaleCollisionTime = currentTime;
+        beginTweenPaddle(currentTime);
       }
-      if (paddleScaleCollisionTime === null) {
-        return;
-      }
-      const timeElapsed = currentTime - paddleScaleCollisionTime;
-      if (timeElapsed > PADDLE_SCALE_DURATION) {
-        removeTransform(paddle, "scale");
-        paddleScaleCollisionTime = null;
-        return;
-      }
-
-      let scaleX;
-      let scaleY;
-      if (timeElapsed <= PADDLE_SCALE_UP_DURATION) {
-        const t = timeElapsed / PADDLE_SCALE_UP_DURATION;
-        scaleX = 1 + (1 - Math.pow(1 - t, 2)) * PADDLE_MAX_X_SCALE;
-        scaleY = 1 + (1 - Math.pow(1 - t, 2)) * PADDLE_MAX_Y_SCALE;
-      } else {
-        const t =
-          (timeElapsed - PADDLE_SCALE_UP_DURATION) / PADDLE_SCALE_DOWN_DURATION;
-        scaleX =
-          1 +
-          PADDLE_MAX_X_SCALE -
-          (1 - Math.pow(1 - t, 2)) * PADDLE_MAX_X_SCALE;
-
-        scaleY =
-          1 +
-          PADDLE_MAX_Y_SCALE -
-          (1 - Math.pow(1 - t, 2)) * PADDLE_MAX_Y_SCALE;
-      }
-      scaleX = truncateDigits(scaleX, 2);
-      scaleY = truncateDigits(scaleY, 2);
-      addTransform(paddle, `scale(${scaleX}, ${scaleY})`, "scale");
+      maybeTweenPaddle(currentTime);
     }
 
     function maybeAddBallTrail() {
@@ -1035,10 +1054,10 @@ const main = function () {
         lastFrameTime = timestamp;
 
         resetTickState(delta);
-        applyForces(direction, timestamp, delta);
+        applyDirectionDeltas(direction, timestamp, delta);
+
         handlePlayAreaCollision(nextBall, direction, hasCollided);
         const collidedWithPaddle = handlePaddleCollision();
-
         getEvents().forEach((event) => {
           maybeCollideWithEvent(
             event,
@@ -1049,11 +1068,13 @@ const main = function () {
           );
         });
 
-        translateBall(nextBall);
         applyCollisionVisualEffects(timestamp);
         applyPaddleCollisionEffects(collidedWithPaddle, timestamp);
         incrementHueRotation(HUE_ROTATION_INCREASE * delta);
         maybeAddBallTrail();
+
+        translatePaddle();
+        translateBall(nextBall);
 
         currentBall.x = nextBall.x;
         currentBall.y = nextBall.y;
