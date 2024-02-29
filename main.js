@@ -566,6 +566,7 @@ const main = function () {
     hueRotation,
     duration,
     delay,
+    easing,
   }) {
     const particle = createElt(
       `particle-${Math.floor(Math.random() * 1000000)}`,
@@ -595,7 +596,7 @@ const main = function () {
       ],
       {
         duration,
-        easing: "ease",
+        easing,
         delay,
       }
     );
@@ -639,6 +640,7 @@ const main = function () {
       hueRotation: (Math.random() - 0.5) * 30 + "deg",
       duration: 250 + Math.random() * 500,
       delay: Math.random() * 100,
+      easing: "ease",
     });
   }
 
@@ -662,17 +664,18 @@ const main = function () {
         y: -1,
       });
       addParticle({
-        x: nextBall.x * (1 + (Math.random() * 0.05 - 0.025)),
+        x: nextBall.x + 25 * (Math.random() - 0.5),
         y: paddleTop,
-        width: 6 * makeJitter(),
-        height: 6 * makeJitter(),
+        width: 4 * makeJitter(),
+        height: 4 * makeJitter(),
         vector,
         distance: Math.random() * 25 + 50,
         rotation: (Math.random() - 0.5) * 720 + "deg",
         color,
         hueRotation: hueRotation.paddle + "deg",
-        duration: 300 + Math.random() * 200,
+        duration: 250 + Math.random() * 200,
         delay: Math.random() * 50,
+        easing: "ease-out",
       });
     }
   }
@@ -726,25 +729,36 @@ const main = function () {
   }
 
   function makeScreenShake() {
-    const target = document.querySelector("body");
+    // const target = document.querySelector("body");
+
     const duration = 250;
     let magnitude = 7.5;
     let startTime = null;
     const isShaking = false;
+    const topPlayArea = grid.querySelector(
+      "div[role='row'][aria-hidden='false']"
+    );
+    const bottomPlayArea = grid.children[1];
+    const sidebar = mainElt.parentElement.parentElement.children[0];
 
     function shake(currentTime) {
-      const elapsedTime = currentTime - startTime;
-      const remainingTime = duration - elapsedTime;
-      if (remainingTime > 0) {
-        const randomX = (Math.random() - 0.5) * magnitude;
-        const randomY = (Math.random() - 0.5) * magnitude;
-        target.style.transform = `translate(${randomX}px, ${randomY}px)`;
-        requestAnimationFrame(shake);
-      } else {
-        target.style.transform = "translate(0px, 0px)";
-        magnitude = 5;
-        isShaking = false;
-      }
+      [mainElt].forEach((target) => {
+        if (!target) {
+          return;
+        }
+        const elapsedTime = currentTime - startTime;
+        const remainingTime = duration - elapsedTime;
+        if (remainingTime > 0) {
+          const randomX = (Math.random() - 0.5) * magnitude;
+          const randomY = (Math.random() - 0.5) * magnitude;
+          target.style.transform = `translate(${randomX}px, ${randomY}px)`;
+          requestAnimationFrame(shake);
+        } else {
+          target.style.transform = "translate(0px, 0px)";
+          magnitude = 5;
+          isShaking = false;
+        }
+      });
     }
 
     function startOrContinueShaking() {
@@ -1038,7 +1052,7 @@ const main = function () {
     }
 
     const BALL_MAX_SCALE = 0.3;
-    const BALL_SCALE_UP_DURATION = 75;
+    const BALL_SCALE_UP_DURATION = 100;
     const BALL_SCALE_DOWN_DURATION = 3 * BALL_SCALE_UP_DURATION;
     const [beginScaleBall, maybeScaleBall] = makeTweenUpDown({
       timeUp: BALL_SCALE_UP_DURATION,
@@ -1065,11 +1079,11 @@ const main = function () {
       maybeScaleBall(currentTime);
     }
 
-    const PADDLE_MAX_Y_SCALE = -0.15;
+    const PADDLE_MAX_Y_SCALE = -0.25;
     const PADDLE_MAX_X_SCALE = 0.05;
     const [beginTweenPaddle, maybeTweenPaddle] = makeTweenUpDown({
-      timeUp: BALL_SCALE_UP_DURATION * 1.25,
-      timeDown: BALL_SCALE_DOWN_DURATION * 1.25,
+      timeUp: BALL_SCALE_UP_DURATION,
+      timeDown: BALL_SCALE_DOWN_DURATION,
       valueUp: (t) => {
         const x = 1 + easeOut(t) * PADDLE_MAX_X_SCALE;
         const y = 1 + easeOut(t) * PADDLE_MAX_Y_SCALE;
