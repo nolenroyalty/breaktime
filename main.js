@@ -554,7 +554,57 @@ const main = function () {
 
   const makeJitter = () => 0.9 + Math.random() * 0.2;
 
-  function createParticle(xIndex, yIndex, bounds, color) {
+  function addParticle({
+    x,
+    y,
+    width,
+    height,
+    vector,
+    distance,
+    rotation,
+    color,
+    hueRotation,
+    duration,
+    delay,
+  }) {
+    const particle = createElt(
+      `particle-${Math.floor(Math.random() * 1000000)}`,
+      {
+        "--width": `${width}px`,
+        "--height": `${height}px`,
+        "--color": color,
+        "--hue-rotation": hueRotation,
+        "--saturation": 1.2 + Math.random() * 0.5,
+        "--left": x + LEFT + "px",
+        "--top": y + TOP + "px",
+      },
+      [],
+      "particle"
+    );
+    const toX = vector.x * distance;
+    const toY = vector.y * distance;
+    const animation = particle.animate(
+      [
+        {
+          opacity: 1,
+        },
+        {
+          transform: `translate(${toX}px, ${toY}px) rotate(${rotation})`,
+          opacity: 0.35,
+        },
+      ],
+      {
+        duration,
+        easing: "ease",
+        delay,
+      }
+    );
+    animation.onfinish = () => {
+      particle.remove();
+    };
+  }
+
+  function createEventParticle(xIndex, yIndex, bounds, color) {
     const baseWidth = bounds.width / 10;
     const baseHeight = bounds.height / 3;
     const width = Math.floor(baseWidth * makeJitter());
@@ -577,44 +627,19 @@ const main = function () {
     vector.x *= makeJitter();
     vector.y *= makeJitter();
 
-    const particle = createElt(
-      `particle-${Math.floor(Math.random() * 1000000)}`,
-      {
-        "--width": `${width}px`,
-        "--height": `${height}px`,
-        "--color": color,
-        "--hue-rotation": (Math.random() - 0.5) * 30 + "deg",
-        "--saturation": 1.2 + Math.random() * 0.5,
-        "--left": startingX + LEFT + "px",
-        "--top": startingY + TOP + "px",
-      },
-      [],
-      "particle"
-    );
-
-    const toX = vector.x * distanceToTravel;
-    const toY = vector.y * distanceToTravel;
-    const rotation = (Math.random() - 0.5) * 720 + "deg";
-    const animation = particle.animate(
-      [
-        {
-          opacity: 1,
-        },
-        {
-          transform: `translate(${toX}px, ${toY}px) rotate(${rotation})`,
-          opacity: 0.35,
-        },
-      ],
-      {
-        duration: 250 + Math.random() * 500,
-        easing: "ease",
-        delay: Math.random() * 100,
-      }
-    );
-
-    animation.onfinish = () => {
-      particle.remove();
-    };
+    addParticle({
+      x: startingX,
+      y: startingY,
+      width,
+      height,
+      vector,
+      distance: distanceToTravel,
+      rotation: (Math.random() - 0.5) * 720 + "deg",
+      color,
+      hueRotation: (Math.random() - 0.5) * 30 + "deg",
+      duration: 250 + Math.random() * 500,
+      delay: Math.random() * 100,
+    });
   }
 
   function addParticlesForEvent(event, bounds) {
@@ -622,8 +647,33 @@ const main = function () {
     const color = computedStyle.backgroundColor || "slategrey";
     for (let y = 0; y < 3; y++) {
       for (let x = 0; x < 10; x++) {
-        createParticle(x, y, bounds, color);
+        createEventParticle(x, y, bounds, color);
       }
+    }
+  }
+
+  function addParticlesForPaddleCollision(direction) {
+    const computedStyle = window.getComputedStyle(paddle);
+    const color = computedStyle.backgroundColor || "slategrey";
+    for (let i = 0; i < 15; i++) {
+      const vectorX = (Math.random() - 0.5) * 2 + direction.x * 0.5;
+      const vector = normalize({
+        x: vectorX,
+        y: -1,
+      });
+      addParticle({
+        x: nextBall.x * (1 + (Math.random() * 0.05 - 0.025)),
+        y: paddleTop,
+        width: 6 * makeJitter(),
+        height: 6 * makeJitter(),
+        vector,
+        distance: Math.random() * 25 + 50,
+        rotation: (Math.random() - 0.5) * 720 + "deg",
+        color,
+        hueRotation: hueRotation.paddle + "deg",
+        duration: 300 + Math.random() * 200,
+        delay: Math.random() * 50,
+      });
     }
   }
 
@@ -1043,6 +1093,7 @@ const main = function () {
     function applyPaddleCollisionEffects(collidedWithPaddle, currentTime) {
       if (collidedWithPaddle) {
         beginTweenPaddle(currentTime);
+        addParticlesForPaddleCollision(direction);
       }
       maybeTweenPaddle(currentTime);
     }
