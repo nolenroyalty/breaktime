@@ -68,6 +68,8 @@ const css = `
   --color-playarea: hsl(235deg 15% 67%);
 
   --hue-rotation: 0deg;
+  --ball-background: hsl(0deg 20% 50%);
+  --paddle-background: hsl(180deg 20% 50%);
 }
 
 @keyframes revealClipPath {
@@ -109,14 +111,11 @@ const css = `
   top: calc(var(--top)* 1px);
   width: calc(var(--size)* 1px);
   height: calc(var(--size)* 1px);
-  /* background-color: var(--color-grey); */
-  background-color: hsl(0deg 20% 50%);
+  background-color: var(--ball-background);
   border-radius: 50%; 
   will-change: transform;
-  /* transition: transform var(--transform-speed) linear,
-               opacity 1s ease, 
-               filter var(--transform-speed) ease; */
-  transition: opacity 1s ease, filter(var(--transform-speed)) ease;
+  /* transition: opacity 1s ease, filter(var(--transform-speed)) linear; */
+  transition: opacity 1s ease;
   filter: hue-rotate(var(--hue-rotation));
   border: 2px solid var(--color-grey-transparent);
   box-sizing: border-box;
@@ -150,12 +149,17 @@ const css = `
 }
 
 .paddle {
+  --hue-rotation: 0deg;
+  box-sizing: border-box;
   position: fixed;
   left: calc(var(--left)* 1px);
   top: calc(var(--top)* 1px);
   width: calc(var(--width)* 1px);
   height: calc(var(--height)* 1px);
-  background-color: var(--color-grey);
+  background-color: var(--paddle-background);
+  border: 2px solid var(--color-grey-transparent);
+  border-radius: 2px;
+  filter: hue-rotate(var(--hue-rotation));
   z-index: 1002;
   /* transition: transform 0.05s linear, opacity 1s ease; */
   transition: opacity 1s ease;
@@ -222,11 +226,12 @@ const main = function () {
   const HEIGHT = BOTTOM - TOP;
   const PADDLE_WIDTH = 100;
   const PADDLE_HEIGHT = 20;
-  let HUE_ROTATION = 0;
-  const HUE_ROTATION_INCREASE = 360 / (5000 / TICK_TIME);
+  const HUE_PER_TICK = 360 / (10000 / TICK_TIME);
+
   // It's gross but these need to be global :/
   let paddleLeft = WIDTH / 2 - 50;
   const paddleTop = HEIGHT - 22;
+  const hueRotation = { ball: 0, paddle: 0 };
   let RUN_GAME = false;
 
   let currentBall = {
@@ -772,9 +777,23 @@ const main = function () {
     })();
 
   function incrementHueRotation(amount) {
-    HUE_ROTATION += amount;
-    HUE_ROTATION = HUE_ROTATION % 360;
-    ballElement.style.setProperty("--hue-rotation", HUE_ROTATION + "deg");
+    hueRotation.ball += amount.ball || 0;
+    hueRotation.paddle += amount.paddle || 0;
+    if (hueRotation.paddle > 360) {
+      console.log(`HUE ROTATION RESET: ${hueRotation.paddle}`);
+      hueRotation.paddle = hueRotation.paddle % 360;
+      console.log(`HUE ROTATION: ${hueRotation.paddle}`);
+    }
+    hueRotation.ball = hueRotation.ball % 360;
+
+    ballElement.style.setProperty(
+      "--hue-rotation",
+      Math.floor(hueRotation.ball) + "deg"
+    );
+    paddle.style.setProperty(
+      "--hue-rotation",
+      Math.floor(hueRotation.paddle) + "deg"
+    );
   }
 
   /* to avoid adding a new dom element every tick we use a little pool */
@@ -807,7 +826,7 @@ const main = function () {
 
       trail.style.setProperty("--top", TOP + top);
       trail.style.setProperty("--left", LEFT + left);
-      trail.style.setProperty("--hue-rotation", HUE_ROTATION + "deg");
+      trail.style.setProperty("--hue-rotation", hueRotation.ball + "deg");
       const animation = trail.animate(
         [
           {
@@ -989,16 +1008,15 @@ const main = function () {
       const collisionCount = (hasCollided.x ? 1 : 0) + (hasCollided.y ? 1 : 0);
 
       if (collisionCount > 0) {
-        incrementHueRotation(30 * collisionCount);
+        incrementHueRotation({ ball: 15 * collisionCount });
         beginScaleBall(currentTime);
       }
 
-      ballElement.style.setProperty("--hue", HUE_ROTATION + "deg");
       maybeScaleBall(currentTime);
     }
 
-    const PADDLE_MAX_Y_SCALE = -0.2;
-    const PADDLE_MAX_X_SCALE = 0.1;
+    const PADDLE_MAX_Y_SCALE = -0.15;
+    const PADDLE_MAX_X_SCALE = 0.05;
     const [beginTweenPaddle, maybeTweenPaddle] = makeTweenUpDown({
       timeUp: BALL_SCALE_UP_DURATION * 1.25,
       timeDown: BALL_SCALE_DOWN_DURATION * 1.25,
@@ -1008,8 +1026,6 @@ const main = function () {
         return { x, y };
       },
       valueDown: (t) => {
-        // const x = 1 + (1 - t) * PADDLE_MAX_X_SCALE;
-        // const y = 1 + (1 - t) * PADDLE_MAX_Y_SCALE;
         const x = 1 + PADDLE_MAX_X_SCALE - easeIn(t) * PADDLE_MAX_X_SCALE;
         const y = 1 + PADDLE_MAX_Y_SCALE - easeIn(t) * PADDLE_MAX_Y_SCALE;
         return { x, y };
@@ -1070,7 +1086,12 @@ const main = function () {
 
         applyCollisionVisualEffects(timestamp);
         applyPaddleCollisionEffects(collidedWithPaddle, timestamp);
-        incrementHueRotation(HUE_ROTATION_INCREASE * delta);
+        const hueRotationAmount = truncateDigits(HUE_PER_TICK * delta, 1);
+
+        incrementHueRotation({
+          ball: hueRotationAmount,
+          paddle: hueRotationAmount,
+        });
         maybeAddBallTrail();
 
         translatePaddle();
