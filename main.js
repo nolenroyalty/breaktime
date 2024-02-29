@@ -724,7 +724,7 @@ const main = function () {
   }
 
   function makeScreenShake() {
-    // const target = document.querySelector("body");
+    const body = document.querySelector("body");
 
     const duration = 250;
     let magnitude = 7.5;
@@ -737,7 +737,7 @@ const main = function () {
     const sidebar = mainElt.parentElement.parentElement.children[0];
 
     function shake(currentTime) {
-      [mainElt].forEach((target) => {
+      [body].forEach((target) => {
         if (!target) {
           return;
         }
