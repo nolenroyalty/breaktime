@@ -115,7 +115,7 @@ const css = `
   border-top: 2px dashed var(--color-borders);
   animation: revealFromCenter 1s ease both;
   animation-delay: 0.5s;
-  /* filter-backdrop: blur(6px); */
+  /* backdrop-filter: blur(6px); */
   z-index: 999;
 }
 
@@ -252,26 +252,26 @@ const main = function () {
   const mainElt = document.querySelector("div[role='main']");
   const grid = mainElt.querySelector("div[role='grid']");
 
-  const bottomPlayArea = grid.children[1].getBoundingClientRect();
-
+  const bottomPlayArea = grid.children[1];
+  const bottomPlayRect = bottomPlayArea.getBoundingClientRect();
   /* We want to make sure you can delete events at the end of the day,
   so we need to push up the bottom boundary of the bottom of the event
   container. We grab this element to do that. */
-  const playAreaToRestrict = grid.children[1].children[0];
+  const playAreaToRestrict = bottomPlayArea.children[0];
   /* This only exists if there are all-day events on the calendar. */
   const topPlayArea =
     grid
       .querySelector("div[role='row'][aria-hidden='false']")
-      ?.getBoundingClientRect() || bottomPlayArea;
+      ?.getBoundingClientRect() || bottomPlayRect;
 
-  const LEFT = Math.min(topPlayArea.left, bottomPlayArea.left);
+  const LEFT = Math.min(topPlayArea.left, bottomPlayRect.left);
   const TOP = topPlayArea.top;
-  const RIGHT = Math.max(topPlayArea.right, bottomPlayArea.right);
+  const RIGHT = Math.max(topPlayArea.right, bottomPlayRect.right);
   const BOTTOM_OFFSET = 5;
   const TRANSLATE_EVENT_AREA_TO_AVOID_COLLISIONS = true;
   const SAFE_ZONE_HEIGHT = 150 - BOTTOM_OFFSET;
   const BOTTOM =
-    Math.max(bottomPlayArea.bottom, window.innerHeight - BOTTOM_OFFSET) -
+    Math.max(bottomPlayRect.bottom, window.innerHeight - BOTTOM_OFFSET) -
     BOTTOM_OFFSET;
   const WIDTH = RIGHT - LEFT;
   const HEIGHT = BOTTOM - TOP;
@@ -674,7 +674,7 @@ const main = function () {
     const width = bounds.width;
     const top = Math.max(bounds.top, 0);
     const bottom = Math.min(bounds.bottom, noCollisionZoneTop);
-    const height = bottom - bounds.top;
+    const height = bottom - top;
 
     let numberOfRows = 3;
     let numberOfColumns = 10;
@@ -800,7 +800,6 @@ const main = function () {
     const topPlayArea = grid.querySelector(
       "div[role='row'][aria-hidden='false']"
     );
-    const bottomPlayArea = grid.children[1];
     const sidebar = mainElt.parentElement.parentElement.children[0];
 
     function shake(currentTime) {
