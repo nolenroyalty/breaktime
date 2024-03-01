@@ -455,9 +455,6 @@ const main = function () {
   };
 
   function handleCollision(ball, collisionRect, direction, hasCollided) {
-    console.log(
-      `TOP: ${collisionRect.top} BOT: ${collisionRect.bottom} noZoneTop: ${noCollisionZoneTop}`
-    );
     const ticksToCollision = getTicksToCollision(
       ball,
       collisionRect,
@@ -670,66 +667,50 @@ const main = function () {
   }
   const addParticle = makeAddParticle();
 
-  function createEventParticle(
-    xIndex,
-    yIndex,
-    bounds,
-    color,
-    numberOfRows,
-    numberOfColumns
-  ) {
-    const baseWidth = bounds.width / numberOfColumns;
-    const baseHeight = bounds.height / numberOfRows;
-    const width = Math.floor(baseWidth * makeJitter());
-    const height = Math.floor(baseHeight * makeJitter());
-
-    const startingX = bounds.left + baseWidth * xIndex;
-    const startingY = bounds.top + baseHeight * yIndex;
-    const distanceToTravel = Math.floor(Math.random() * 75 + 25);
-
-    const centerX = bounds.left + bounds.width / 2;
-    const centerY = bounds.top + bounds.height / 2;
-
-    const vector = normalize(
-      subtractVectors(
-        { x: startingX, y: startingY },
-        { x: centerX, y: centerY }
-      )
-    );
-
-    vector.x *= makeJitter();
-    vector.y *= makeJitter();
-
-    addParticle({
-      x: startingX,
-      y: startingY,
-      width,
-      height,
-      vector,
-      distance: distanceToTravel,
-      rotation: (Math.random() - 0.5) * 720 + "deg",
-      color,
-      hueRotation: (Math.random() - 0.5) * 30 + "deg",
-      duration: 250 + Math.random() * 500,
-      delay: Math.random() * 100,
-      easing: "ease",
-    });
-  }
-
   function addParticlesForEvent(event, bounds) {
     const computedStyle = window.getComputedStyle(event);
     const color = computedStyle.backgroundColor || "slategrey";
     const width = bounds.width;
-    const height = bounds.height;
+    const top = Math.max(bounds.top, 0);
+    const bottom = Math.min(bounds.bottom, noCollisionZoneTop);
+    const height = bottom - bounds.top;
+
     let numberOfRows = 3;
     let numberOfColumns = 10;
     if (height / 5 > width) {
       numberOfRows = 4;
       numberOfColumns = 5;
     }
+
+    const baseParticleWidth = width / numberOfColumns;
+    const baseParticleHeight = height / numberOfRows;
+
     for (let y = 0; y < numberOfRows; y++) {
       for (let x = 0; x < numberOfColumns; x++) {
-        createEventParticle(x, y, bounds, color, numberOfRows, numberOfColumns);
+        const fromX = bounds.left + baseParticleWidth * x;
+        const fromY = top + baseParticleHeight * y;
+        const centerX = bounds.left + bounds.width / 2;
+        const centerY = top + height / 2;
+        const vector = normalize(
+          subtractVectors({ x: fromX, y: fromY }, { x: centerX, y: centerY })
+        );
+        vector.x *= makeJitter();
+        vector.y *= makeJitter();
+
+        addParticle({
+          x: fromX,
+          y: fromY,
+          width: baseParticleWidth * makeJitter(),
+          height: baseParticleHeight * makeJitter(),
+          vector,
+          distance: Math.floor(Math.random() * 75 + 25),
+          rotation: (Math.random() - 0.5) * 720 + "deg",
+          color,
+          hueRotation: (Math.random() - 0.5) * 30 + "deg",
+          duration: 250 + Math.random() * 500,
+          delay: Math.random() * 100,
+          easing: "ease",
+        });
       }
     }
   }
@@ -1284,10 +1265,12 @@ const main = function () {
     playArea.classList.remove("transparent");
     paddleElement.classList.remove("transparent");
     playAreaToRestrict.style.position = "relative";
-    // playAreaToRestrict.style.bottom = "150px";
     if (TRANSLATE_EVENT_AREA_TO_AVOID_COLLISIONS) {
+      // playAreaToRestrict.style.bottom = "150px";
       playAreaToRestrict.style.transition = "transform 0.75s ease";
-      playAreaToRestrict.style.transform = `translateY(-${SAFE_ZONE_HEIGHT}px)`;
+      playAreaToRestrict.style.transform = `translateY(-${
+        SAFE_ZONE_HEIGHT + BOTTOM_OFFSET
+      }px)`;
     }
     // playAreaToRestrict.classList.add("extend-bottom");
     // const idxes = [1, 0, 0, 0];
