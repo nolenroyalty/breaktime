@@ -114,8 +114,8 @@ const css = `
   /* background-color: hsl(0deg 0% 96% / 0.7); */
   border-top: 2px dashed var(--color-borders);
   animation: revealFromCenter 1s ease both;
-  animation-delay: 0.5s;
-  /* backdrop-filter: blur(6px); */
+  /* animation-delay: 0.5s; */
+  backdrop-filter: blur(6px);
   z-index: 999;
 }
 
@@ -259,14 +259,21 @@ const main = function () {
   container. We grab this element to do that. */
   const playAreaToRestrict = bottomPlayArea.children[0];
   /* This only exists if there are all-day events on the calendar. */
-  const topPlayArea =
-    grid
-      .querySelector("div[role='row'][aria-hidden='false']")
-      ?.getBoundingClientRect() || bottomPlayRect;
+  const topPlayArea = grid.querySelector(
+    "div[role='row'][aria-hidden='false']"
+  );
 
-  const LEFT = Math.min(topPlayArea.left, bottomPlayRect.left);
-  const TOP = topPlayArea.top;
-  const RIGHT = Math.max(topPlayArea.right, bottomPlayRect.right);
+  const topPlayRect = topPlayArea?.getBoundingClientRect() || bottomPlayRect;
+
+  const LEFT = Math.min(topPlayRect.left, bottomPlayRect.left);
+  const TOP = topPlayRect.top;
+  /* If there are all-day events there's an additional div at the top of the screen
+  that we need to respect; an event can be *above* that but below top (and we should
+    avoid shattering it) - and when we generate particles we should use this
+    to cap the top of the particle area. */
+  const NON_ALL_DAY_EVENT_TOP = topPlayArea ? topPlayRect.bottom - TOP : 0;
+  console.log(`NON ALL DAY: ${NON_ALL_DAY_EVENT_TOP}`);
+  const RIGHT = Math.max(topPlayRect.right, bottomPlayRect.right);
   const BOTTOM_OFFSET = 5;
   const TRANSLATE_EVENT_AREA_TO_AVOID_COLLISIONS = true;
   const SAFE_ZONE_HEIGHT = 150 - BOTTOM_OFFSET;
@@ -797,9 +804,6 @@ const main = function () {
     let magnitude = 7.5;
     let startTime = null;
     const isShaking = false;
-    const topPlayArea = grid.querySelector(
-      "div[role='row'][aria-hidden='false']"
-    );
     const sidebar = mainElt.parentElement.parentElement.children[0];
 
     function shake(currentTime) {
@@ -976,29 +980,49 @@ const main = function () {
   }
   const addBallTrail = makeAddBallTrail();
 
-  const translatedBounds = (obj) => {
+  const translatedBounds = (obj, isAllDay) => {
     const bounds = obj.getBoundingClientRect();
-    let top = bounds.top - TOP;
     let bottom = Math.min(bounds.bottom - TOP, noCollisionZoneTop);
+    const upperBound = isAllDay ? 0 : NON_ALL_DAY_EVENT_TOP;
+
+    if (bottom < upperBound) {
+      return null;
+    }
+
+    let top = Math.max(bounds.top - TOP, upperBound);
+
     if (top > noCollisionZoneTop) {
       return null;
     }
+
     return {
       left: bounds.left - LEFT,
       right: bounds.right - LEFT,
-      top: bounds.top - TOP,
+      top: top,
       bottom: bottom,
       width: bounds.width,
       height: bounds.height,
     };
   };
 
+  function determineIsAllDay(event) {
+    /* I don't know of a great way to do this that isn't either fragile due to
+    the dom structure, fragile due to relying on English, or involves some guesswork
+    around the bounds of the all day dom element D:
+
+    This seems to work surprisingly well and it's not a huge deal to get this wrong.
+    */
+    const inner = event.innerText.split("\n");
+    return inner.length === 2;
+  }
+
   function maybeCollideWithEvent(event, ball, direction, hasCollided, tickId) {
     if (event.dataset.intersected) {
       return;
     }
 
-    const eventBounds = translatedBounds(event);
+    const isAllDay = determineIsAllDay(event);
+    const eventBounds = translatedBounds(event, isAllDay);
     if (eventBounds === null) {
       return;
     }
@@ -1265,7 +1289,7 @@ const main = function () {
     playArea.classList.remove("transparent");
     paddleElement.classList.remove("transparent");
     playAreaToRestrict.style.position = "relative";
-    if (TRANSLATE_EVENT_AREA_TO_AVOID_COLLISIONS) {
+    if (false && TRANSLATE_EVENT_AREA_TO_AVOID_COLLISIONS) {
       // playAreaToRestrict.style.bottom = "150px";
       playAreaToRestrict.style.transition = "transform 0.75s ease";
       playAreaToRestrict.style.transform = `translateY(-${
