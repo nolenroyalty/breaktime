@@ -97,7 +97,6 @@ const css = `
   left: calc(var(--left) * 1px);
   width: calc(var(--width) * 1px);
   height: calc(var(--height) * 1px);
-  /* background-color: var(--color-playarea); */
   outline: 2px dashed var(--color-borders);
   pointer-events: none;
   transition: opacity 1.5s ease;
@@ -112,7 +111,6 @@ const css = `
   left: calc(var(--left) * 1px);
   width: calc(var(--width) * 1px);
   bottom: calc(var(--bottom) * 1px);
-  /* background-color: hsl(0deg 0% 96% / 0.7); */
   border-top: 2px dashed var(--color-borders);
   animation: revealFromCenter 0.5s ease both;
   animation-delay: 0.25s;
