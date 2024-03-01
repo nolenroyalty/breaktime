@@ -114,6 +114,7 @@ const css = `
   /* background-color: hsl(0deg 0% 96% / 0.7); */
   border-top: 2px dashed var(--color-borders);
   animation: revealFromCenter 1s ease both;
+  animation-delay: 0.5s;
   /* filter-backdrop: blur(6px); */
   z-index: 999;
 }
@@ -320,7 +321,7 @@ const main = function () {
 
   /* nroyalty: no more heightOffset hijinks? */
   const [noCollisionZone, noCollisionZoneTop] = (() => {
-    let topForCalculations = BOTTOM - BOTTOM_OFFSET - SAFE_ZONE_HEIGHT - TOP;
+    let topForCalculations = BOTTOM - SAFE_ZONE_HEIGHT - TOP;
     const elt = createElt(
       "_noCollisionZone",
       {
