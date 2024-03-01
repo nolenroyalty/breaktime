@@ -66,6 +66,7 @@ const css = `
   --color-grey: hsl(235deg 5% 35%);
   --color-grey-transparent: hsla(235deg 5% 35% / 0.7);
   --color-playarea: hsl(235deg 15% 67%);
+  --color-borders: hsl(245deg 15% 70%);
 
   --hue-rotation: 0deg;
   --ball-background: hsl(0deg 20% 50%);
@@ -88,24 +89,51 @@ const css = `
   width: calc(var(--width) * 1px);
   height: calc(var(--height) * 1px);
   /* background-color: var(--color-playarea); */
-  outline: 2px dashed black;
+  outline: 2px dashed var(--color-borders);
   pointer-events: none;
   transition: opacity 1.5s ease;
   animation: revealClipPath 1s ease both;
   will-change: transform, clip-path;
 }
 
+@keyframes revealFromCenter {
+  from {
+    clip-path: polygon(50% 0%, 50% 0%, 50% 100%, 50% 100%);
+  }
+  to {
+    clip-path: polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%);
+  }
+}
+
 .no-collision-zone {
   position: fixed;
-  top: calc(var(--top) * 1px);
+  height: calc(var(--height) * 1px);
   left: calc(var(--left) * 1px);
   width: calc(var(--width) * 1px);
   bottom: calc(var(--bottom) * 1px);
-  backdrop-filter: blur(5px);
+  /* background-color: hsl(0deg 0% 96% / 0.7); */
+  border-top: 2px dashed var(--color-borders);
+  animation: revealFromCenter 1s ease both;
+  /* filter-backdrop: blur(6px); */
   z-index: 999;
 }
 
+@keyframes slideInFromBottom {
+  from {
+    transform: translate(var(--translate-x), calc(var(--slide-in-y-amount) + var(--translate-y)));
+  }
+  to {
+   transform: translate(var(--translate-x), calc(var(--translate-y)));
+  }
+
+}
+
+.slide-in-from-bottom {
+  animation: slideInFromBottom 0.75s ease-out both;
+}
+
 .ball {
+  --slide-in-y-amount: 300px;
   position: fixed;
   left: calc(var(--left)* 1px);
   top: calc(var(--top)* 1px);
@@ -150,6 +178,7 @@ const css = `
 
 .paddle {
   --hue-rotation: 0deg;
+  --slide-in-y-amount: 200px;
   box-sizing: border-box;
   position: fixed;
   left: calc(var(--left)* 1px);
@@ -163,6 +192,7 @@ const css = `
   z-index: 1002;
   /* transition: transform 0.05s linear, opacity 1s ease; */
   transition: opacity 1s ease;
+  transform-origin: bottom center;
 }
 
 .transparent {
@@ -175,7 +205,7 @@ const css = `
 }
 
 .brickEvent {
-  border-radius: 0;
+  /* border-radius: 0; */
 }
 
 particle {
@@ -191,6 +221,18 @@ particle {
   left: var(--left);
   top: var(--top);
   display: var(--display);
+}
+
+[data-style-id="_nolenEventArea"] *::after {
+  content: "";
+  display: block;
+  height: 150px;
+}
+
+.extend-bottom::after {
+  content: "";
+  display: block;
+  height: 150px;
 }
 `;
 
@@ -225,6 +267,8 @@ const main = function () {
   const TOP = topPlayArea.top;
   const RIGHT = Math.max(topPlayArea.right, bottomPlayArea.right);
   const BOTTOM_OFFSET = 5;
+  const TRANSLATE_EVENT_AREA_TO_AVOID_COLLISIONS = true;
+  const SAFE_ZONE_HEIGHT = 150 - BOTTOM_OFFSET;
   const BOTTOM =
     Math.max(bottomPlayArea.bottom, window.innerHeight - BOTTOM_OFFSET) -
     BOTTOM_OFFSET;
@@ -274,20 +318,20 @@ const main = function () {
     ["play-area", "transparent"]
   );
 
+  /* nroyalty: no more heightOffset hijinks? */
   const [noCollisionZone, noCollisionZoneTop] = (() => {
-    const heightOffset = TOP + HEIGHT * 0.8;
-    const height = HEIGHT - heightOffset;
+    let topForCalculations = BOTTOM - BOTTOM_OFFSET - SAFE_ZONE_HEIGHT - TOP;
     const elt = createElt(
       "_noCollisionZone",
       {
-        "--top": heightOffset,
+        "--height": SAFE_ZONE_HEIGHT,
         "--left": LEFT,
         "--width": WIDTH,
         "--bottom": BOTTOM_OFFSET,
       },
       ["no-collision-zone"]
     );
-    return [elt, heightOffset - TOP];
+    return [elt, topForCalculations];
   })();
 
   const ballElement = createElt(
@@ -298,7 +342,7 @@ const main = function () {
       "--size": BALL_SIZE,
       "--transform-speed": `${TICK_TIME * 1.1}ms`,
     },
-    ["ball", "transparent"]
+    ["ball", "transparent", "slide-in-from-bottom"]
   );
 
   const paddleElement = createElt(
@@ -309,7 +353,7 @@ const main = function () {
       "--width": PADDLE_WIDTH,
       "--height": PADDLE_HEIGHT,
     },
-    ["paddle", "transparent"]
+    ["paddle", "transparent", "slide-in-from-bottom"]
   );
 
   const clamp = (min, max, value) => Math.min(Math.max(min, value), max);
@@ -341,6 +385,8 @@ const main = function () {
 
   function translate(elt, x, y) {
     addTransform(elt, `translate(${x}px, ${y}px)`, "translate");
+    elt.style.setProperty("--translate-x", x + "px");
+    elt.style.setProperty("--translate-y", y + "px");
   }
 
   function translateBall(ball) {
@@ -409,6 +455,9 @@ const main = function () {
   };
 
   function handleCollision(ball, collisionRect, direction, hasCollided) {
+    console.log(
+      `TOP: ${collisionRect.top} BOT: ${collisionRect.bottom} noZoneTop: ${noCollisionZoneTop}`
+    );
     const ticksToCollision = getTicksToCollision(
       ball,
       collisionRect,
@@ -621,9 +670,16 @@ const main = function () {
   }
   const addParticle = makeAddParticle();
 
-  function createEventParticle(xIndex, yIndex, bounds, color) {
-    const baseWidth = bounds.width / 10;
-    const baseHeight = bounds.height / 3;
+  function createEventParticle(
+    xIndex,
+    yIndex,
+    bounds,
+    color,
+    numberOfRows,
+    numberOfColumns
+  ) {
+    const baseWidth = bounds.width / numberOfColumns;
+    const baseHeight = bounds.height / numberOfRows;
     const width = Math.floor(baseWidth * makeJitter());
     const height = Math.floor(baseHeight * makeJitter());
 
@@ -663,9 +719,17 @@ const main = function () {
   function addParticlesForEvent(event, bounds) {
     const computedStyle = window.getComputedStyle(event);
     const color = computedStyle.backgroundColor || "slategrey";
-    for (let y = 0; y < 3; y++) {
-      for (let x = 0; x < 10; x++) {
-        createEventParticle(x, y, bounds, color);
+    const width = bounds.width;
+    const height = bounds.height;
+    let numberOfRows = 3;
+    let numberOfColumns = 10;
+    if (height / 5 > width) {
+      numberOfRows = 4;
+      numberOfColumns = 5;
+    }
+    for (let y = 0; y < numberOfRows; y++) {
+      for (let x = 0; x < numberOfColumns; x++) {
+        createEventParticle(x, y, bounds, color, numberOfRows, numberOfColumns);
       }
     }
   }
@@ -933,7 +997,8 @@ const main = function () {
 
   const translatedBounds = (obj) => {
     const bounds = obj.getBoundingClientRect();
-    const top = bounds.top - TOP;
+    let top = bounds.top - TOP;
+    let bottom = Math.min(bounds.bottom - TOP, noCollisionZoneTop);
     if (top > noCollisionZoneTop) {
       return null;
     }
@@ -941,7 +1006,7 @@ const main = function () {
       left: bounds.left - LEFT,
       right: bounds.right - LEFT,
       top: bounds.top - TOP,
-      bottom: Math.min(bounds.bottom - TOP, noCollisionZoneTop),
+      bottom: bottom,
       width: bounds.width,
       height: bounds.height,
     };
@@ -1099,7 +1164,7 @@ const main = function () {
       maybeScaleBall(currentTime);
     }
 
-    const PADDLE_MAX_Y_SCALE = -0.2;
+    const PADDLE_MAX_Y_SCALE = -0.15;
     const PADDLE_MAX_X_SCALE = 0.05;
     const [beginTweenPaddle, maybeTweenPaddle] = makeTweenUpDown({
       timeUp: BALL_SCALE_UP_DURATION,
@@ -1193,6 +1258,8 @@ const main = function () {
 
     function beginLoop() {
       lastFrameTime = performance.now();
+      paddleElement.classList.remove("slide-in-from-bottom");
+      ballElement.classList.remove("slide-in-from-bottom");
       startPaddleListeners();
       requestAnimationFrame(loop);
     }
@@ -1217,7 +1284,22 @@ const main = function () {
     playArea.classList.remove("transparent");
     paddleElement.classList.remove("transparent");
     playAreaToRestrict.style.position = "relative";
-    playAreaToRestrict.style.bottom = "150px";
+    // playAreaToRestrict.style.bottom = "150px";
+    if (TRANSLATE_EVENT_AREA_TO_AVOID_COLLISIONS) {
+      playAreaToRestrict.style.transition = "transform 0.75s ease";
+      playAreaToRestrict.style.transform = `translateY(-${SAFE_ZONE_HEIGHT}px)`;
+    }
+    // playAreaToRestrict.classList.add("extend-bottom");
+    // const idxes = [1, 0, 0, 0];
+    // const elt = grid;
+    // idxes.forEach((idx) => {
+    //   elt = elt.children[idx];
+    //   elt.classList.add("extend-bottom");
+    // });
+
+    // grid.children[1].children[0].children[1].forEach((child) => {
+    //   child.classList.add("extend-bottom");
+    // });
   }, 1);
 
   const listener = document.addEventListener("keydown", (e) => {
