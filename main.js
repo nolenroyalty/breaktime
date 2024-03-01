@@ -82,6 +82,15 @@ const css = `
   }
 }
 
+@keyframes revealFromCenter {
+  from {
+    clip-path: polygon(50% 0%, 50% 0%, 50% 100%, 50% 100%);
+  }
+  to {
+    clip-path: polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%);
+  }
+}
+
 .play-area {
   position: fixed;
   top: calc(var(--top) * 1px);
@@ -96,14 +105,6 @@ const css = `
   will-change: transform, clip-path;
 }
 
-@keyframes revealFromCenter {
-  from {
-    clip-path: polygon(50% 0%, 50% 0%, 50% 100%, 50% 100%);
-  }
-  to {
-    clip-path: polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%);
-  }
-}
 
 .no-collision-zone {
   position: fixed;
@@ -113,8 +114,8 @@ const css = `
   bottom: calc(var(--bottom) * 1px);
   /* background-color: hsl(0deg 0% 96% / 0.7); */
   border-top: 2px dashed var(--color-borders);
-  animation: revealFromCenter 1s ease both;
-  /* animation-delay: 0.5s; */
+  animation: revealFromCenter 0.5s ease both;
+  animation-delay: 0.25s;
   backdrop-filter: blur(6px);
   z-index: 999;
 }
@@ -197,7 +198,7 @@ const css = `
 }
 
 .transparent {
-  opacity: 0;
+  /* opacity: 0; */
 }
 
 .faded {
@@ -1285,11 +1286,11 @@ const main = function () {
   }, STOP_AFTER_THIS_MANY_TICKS * TICK_TIME);
 
   const setup = setTimeout(() => {
-    ballElement.classList.remove("transparent");
-    playArea.classList.remove("transparent");
-    paddleElement.classList.remove("transparent");
-    playAreaToRestrict.style.position = "relative";
+    // ballElement.classList.remove("transparent");
+    // playArea.classList.remove("transparent");
+    // paddleElement.classList.remove("transparent");
     if (false && TRANSLATE_EVENT_AREA_TO_AVOID_COLLISIONS) {
+      // playAreaToRestrict.style.position = "relative";
       // playAreaToRestrict.style.bottom = "150px";
       playAreaToRestrict.style.transition = "transform 0.75s ease";
       playAreaToRestrict.style.transform = `translateY(-${
