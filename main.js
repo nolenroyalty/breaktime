@@ -44,9 +44,22 @@ const findButtonByAriaLabel = (candidates, text) => {
 
 const maybeDeclineRecurringEvent = (dialog) => {
   console.log("CONSIDER DECLINE RECURRING");
-  const okButton = findButtonByText(dialog.querySelectorAll("button"), "ok");
+  const okButton = findButtonByText(
+    dialog.querySelectorAll("div[role='button']"),
+    "ok"
+  );
   if (okButton) {
     okButton.click();
+    return true;
+  } else {
+    return false;
+  }
+};
+
+const closeEvent = (buttons) => {
+  const closeButton = findButtonByAriaLabel(buttons, "close");
+  if (closeButton) {
+    closeButton.click();
     return true;
   } else {
     return false;
@@ -57,17 +70,12 @@ const maybeDeclineBaseEvent = (dialog) => {
   const buttons = dialog.querySelectorAll("button");
   const declineButton = findButtonByText(buttons, "no");
   if (!declineButton) {
-    return false;
+    console.log("NO DECLINE BUTTON - TRYING TO CLOSE");
+    return closeEvent(buttons);
   }
   if (declineButton.getAttribute("aria-label").includes("selected")) {
-    console.log("DECLINE ALREADY SELECTED");
-    const closeButton = findButtonByAriaLabel(buttons, "close");
-    if (closeButton) {
-      closeButton.click();
-      return true;
-    } else {
-      return false;
-    }
+    console.log("DECLINE ALREADY SELECTED - TRYING TO CLOSE");
+    return closeEvent(buttons);
   } else {
     declineButton.click();
     return true;
@@ -98,17 +106,66 @@ const detectDialogAddition = (mutations, observer) => {
   }
 };
 
-const observer = new MutationObserver(detectDialogAddition);
-const observerConfig = { childList: true, subtree: true };
-const createObserver = () => {
+function waitForDialogsToClear() {
+  let dialogCount = 0;
+  let hasSeenADialog = false;
+  return new Promise((resolve) => {
+    const observer = new MutationObserver((mutations, observer) => {
+      for (const mutation of mutations) {
+        if (mutation.type === "childList") {
+          mutation.addedNodes.forEach((node) => {
+            if (
+              node.nodeType === 1 &&
+              node.querySelector("div[role='dialog']")
+            ) {
+              dialogCount++;
+              hasSeenADialog = true;
+            }
+          });
+          mutation.removedNodes.forEach((node) => {
+            if (
+              node.nodeType === 1 &&
+              node.querySelector("div[role='dialog']")
+            ) {
+              dialogCount--;
+            }
+          });
+        }
+        if (hasSeenADialog && dialogCount === 0) {
+          observer.disconnect();
+          resolve();
+        }
+      }
+    });
+    const observerConfig = { childList: true, subtree: true };
+    observer.observe(document.body, observerConfig);
+  });
+}
+
+const startDismissObserver = () => {
+  const observer = new MutationObserver(detectDialogAddition);
+  const observerConfig = { childList: true, subtree: true };
   observer.observe(document.body, observerConfig);
+  return observer;
 };
 
-createObserver();
-const runTest = (title) => {
+async function runTest(title) {
+  const observer = startDismissObserver();
   const event = selectByTitle(title, 1)[0];
   event.click();
-};
+  await waitForDialogsToClear();
+  observer.disconnect();
+}
+
+async function dismissSomeEvents(count = 3) {
+  const events = Array.from(getEvents());
+  const observer = startDismissObserver();
+  for (let i = 0; i < Math.min(count, events.length); i++) {
+    events[i].click();
+    await waitForDialogsToClear();
+  }
+  observer.disconnect();
+}
 
 const css = `
 :root {
