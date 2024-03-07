@@ -110,19 +110,6 @@ const runTest = (title) => {
   event.click();
 };
 
-const dismissBigModal = () => {
-  const buttons = Array.from(document.querySelectorAll("div[role='button']"));
-  if (buttons) {
-    const innerSpans = buttons.flatMap((button) =>
-      Array.from(document.querySelectorAll("span")).filter(
-        (span) => span.textContent === "OK"
-      )
-    );
-    innerSpans[0]?.parentElement?.click();
-    console.log("CLICKED OK");
-  }
-};
-
 const css = `
 :root {
   --color-black: hsl(235deg 15% 15%);
