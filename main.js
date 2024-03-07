@@ -16,53 +16,74 @@ const selectByTitle = (title, count) => {
 
 const declineEvent = (event) => {};
 
-// const detectDialogAddition = (mutations, observer) => {
-//   for (const mutation of mutations) {
-//     if (mutation.type === "childList") {
-//       mutation.addedNodes.forEach((node) => {
-//         if (
+const maybeDeclineRecurringEvent = (dialog) => {
+  console.log("CONSIDER DECLINE RECURRING");
+  const buttons = Array.from(dialog.querySelectorAll("div[role='button']"));
+  const okButton = buttons.filter((button) =>
+    button.textContent.toLowerCase().includes("ok")
+  );
+  if (okButton.length === 1) {
+    okButton[0].click();
+    return true;
+  } else if (okButton.length > 1) {
+    console.warn("TOO MANY OK BUTTONS?");
+    return false;
+  } else {
+    console.warn("NO OK BUTTON?");
+    return false;
+  }
+};
 
-// const acceptOrDeclineEvent = (event, action, delay = 10) => {
-//   console.log("ACCEPT OR DECLINE");
-//   let targetString = "unknown";
-//   if (action === "accept") {
-//     targetString = "Yes";
-//   } else if (action === "decline") {
-//     targetString = "No";
-//   } else {
-//     console.error(`Unknown action: ${action}`);
-//     return;
-//   }
-//   setTimeout(() => {
-//     event.click();
-//     const goingSpan = Array.from(
-//       document.querySelectorAll("span[aria-hidden='true']")
-//     ).filter((span) => span.textContent === "Going?")[0];
-//     if (goingSpan) {
-//       console.log("FOUND GOING SPAN");
-//       const spans = goingSpan.nextSibling?.querySelectorAll("span");
-//       if (spans) {
-//         console.log("FOUND INNER SPANS");
-//         Array.from(spans)
-//           .filter((span) => span.outerText === targetString)[0]
-//           ?.parentElement?.click();
-//       }
-//     }
-//   }, 1);
+const maybeDeclineBaseEvent = (dialog) => {
+  const buttons = dialog.querySelectorAll("button");
+  const declineButtons = Array.from(buttons).filter((button) =>
+    button.textContent.toLowerCase().includes("no")
+  );
+  if (declineButtons.length === 1) {
+    console.log("CLICKING DECLINE");
+    declineButtons[0].click();
+  } else if (declineButtons.length > 1) {
+    console.warn("TOO MANY DECLINE BUTTONS?");
+  } else {
+    console.warn("NO DECLINE BUTTON?");
+  }
+};
 
-// setTimeout(() => {
-//   const buttons = Array.from(document.querySelectorAll("div[role='button']"));
-//   if (buttons) {
-//     const innerSpans = buttons.flatMap((button) =>
-//       Array.from(document.querySelectorAll("span")).filter(
-//         (span) => span.textContent === "OK"
-//       )
-//     );
-//     innerSpans[0]?.parentElement?.click();
-//     console.log("CLICKED OK");
-//   }
-// }, 5);
-// };
+const detectDialogAddition = (mutations, observer) => {
+  console.log("DETECTING DIALOG ADDITION");
+  for (const mutation of mutations) {
+    if (mutation.type === "childList") {
+      mutation.addedNodes.forEach((node) => {
+        if (node.nodeType === 1) {
+          const roleDialog = node.querySelector("div[role='dialog']");
+          let success = false;
+          if (roleDialog?.textContent.includes("RSVP to recurring event")) {
+            success = maybeDeclineRecurringEvent(roleDialog);
+          } else if (roleDialog) {
+            success = maybeDeclineBaseEvent(roleDialog);
+          }
+          if (success) {
+            console.debug("CLICK SUCCESS");
+          } else {
+            console.debug("CLICK FAILURE");
+          }
+        }
+      });
+    }
+  }
+};
+
+const observer = new MutationObserver(detectDialogAddition);
+const observerConfig = { childList: true, subtree: true };
+const createObserver = () => {
+  observer.observe(document.body, observerConfig);
+};
+
+createObserver();
+const runTest = (title) => {
+  const event = selectByTitle(title, 1)[0];
+  event.click();
+};
 
 const dismissBigModal = () => {
   const buttons = Array.from(document.querySelectorAll("div[role='button']"));
