@@ -13,36 +13,64 @@ const selectByTitle = (title, count) => {
   return selected.slice(0, count);
 };
 
-const maybeDeclineRecurringEvent = (dialog) => {
-  console.log("CONSIDER DECLINE RECURRING");
-  const buttons = Array.from(dialog.querySelectorAll("div[role='button']"));
-  const okButton = buttons.filter((button) =>
-    button.textContent.toLowerCase().includes("ok")
+const findButtonToClick = (candidates, text, getText) => {
+  const matches = Array.from(candidates).filter((candidate) =>
+    getText(candidate).toLowerCase().includes(text)
   );
-  if (okButton.length === 1) {
-    okButton[0].click();
-    return true;
-  } else if (okButton.length > 1) {
-    console.warn("TOO MANY OK BUTTONS?");
+  if (matches.length === 1) {
+    return matches[0];
+  } else if (matches.length > 1) {
+    console.warn(`TOO MANY MATCHES for ${text}`);
     return false;
   } else {
-    console.warn("NO OK BUTTON?");
+    console.warn(`NO MATCHES for ${text}`);
+    return false;
+  }
+};
+
+const findButtonByText = (candidates, text) => {
+  return findButtonToClick(
+    candidates,
+    text,
+    (candidate) => candidate.textContent
+  );
+};
+
+const findButtonByAriaLabel = (candidates, text) => {
+  return findButtonToClick(candidates, text, (candidate) =>
+    candidate.getAttribute("aria-label")
+  );
+};
+
+const maybeDeclineRecurringEvent = (dialog) => {
+  console.log("CONSIDER DECLINE RECURRING");
+  const okButton = findButtonByText(dialog.querySelectorAll("button"), "ok");
+  if (okButton) {
+    okButton.click();
+    return true;
+  } else {
     return false;
   }
 };
 
 const maybeDeclineBaseEvent = (dialog) => {
   const buttons = dialog.querySelectorAll("button");
-  const declineButtons = Array.from(buttons).filter((button) =>
-    button.textContent.toLowerCase().includes("no")
-  );
-  if (declineButtons.length === 1) {
-    console.log("CLICKING DECLINE");
-    declineButtons[0].click();
-  } else if (declineButtons.length > 1) {
-    console.warn("TOO MANY DECLINE BUTTONS?");
+  const declineButton = findButtonByText(buttons, "no");
+  if (!declineButton) {
+    return false;
+  }
+  if (declineButton.getAttribute("aria-label").includes("selected")) {
+    console.log("DECLINE ALREADY SELECTED");
+    const closeButton = findButtonByAriaLabel(buttons, "close");
+    if (closeButton) {
+      closeButton.click();
+      return true;
+    } else {
+      return false;
+    }
   } else {
-    console.warn("NO DECLINE BUTTON?");
+    declineButton.click();
+    return true;
   }
 };
 
