@@ -5,6 +5,23 @@ const getEvents = () => {
     .querySelectorAll("div[role='button']");
 };
 
+const selectByTitle = (title, count) => {
+  const events = getEvents();
+  const selected = Array.from(events).filter((event) =>
+    event.textContent.includes(title)
+  );
+  // Select only count of the events
+  return selected.slice(0, count);
+};
+
+const declineEvent = (event) => {};
+
+// const detectDialogAddition = (mutations, observer) => {
+//   for (const mutation of mutations) {
+//     if (mutation.type === "childList") {
+//       mutation.addedNodes.forEach((node) => {
+//         if (
+
 // const acceptOrDeclineEvent = (event, action, delay = 10) => {
 //   console.log("ACCEPT OR DECLINE");
 //   let targetString = "unknown";
