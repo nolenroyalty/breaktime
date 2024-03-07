@@ -1284,28 +1284,12 @@ const main = function () {
   }, STOP_AFTER_THIS_MANY_TICKS * TICK_TIME);
 
   const setup = setTimeout(() => {
-    // ballElement.classList.remove("transparent");
-    // playArea.classList.remove("transparent");
-    // paddleElement.classList.remove("transparent");
     if (false && TRANSLATE_EVENT_AREA_TO_AVOID_COLLISIONS) {
-      // playAreaToRestrict.style.position = "relative";
-      // playAreaToRestrict.style.bottom = "150px";
       playAreaToRestrict.style.transition = "transform 0.75s ease";
       playAreaToRestrict.style.transform = `translateY(-${
         SAFE_ZONE_HEIGHT + BOTTOM_OFFSET
       }px)`;
     }
-    // playAreaToRestrict.classList.add("extend-bottom");
-    // const idxes = [1, 0, 0, 0];
-    // const elt = grid;
-    // idxes.forEach((idx) => {
-    //   elt = elt.children[idx];
-    //   elt.classList.add("extend-bottom");
-    // });
-
-    // grid.children[1].children[0].children[1].forEach((child) => {
-    //   child.classList.add("extend-bottom");
-    // });
   }, 1);
 
   const listener = document.addEventListener("keydown", (e) => {
