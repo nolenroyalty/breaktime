@@ -10,11 +10,8 @@ const selectByTitle = (title, count) => {
   const selected = Array.from(events).filter((event) =>
     event.textContent.includes(title)
   );
-  // Select only count of the events
   return selected.slice(0, count);
 };
-
-const declineEvent = (event) => {};
 
 const maybeDeclineRecurringEvent = (dialog) => {
   console.log("CONSIDER DECLINE RECURRING");
