@@ -864,25 +864,11 @@ const main = function () {
     return truncateVector(scaled, 2);
   }
 
-  function wrappedIntervalLoop(fn, label) {
-    return () => {
-      try {
-        fn();
-      } catch (e) {
-        console.log(`${label} ERROR: ${e}`);
-        console.log(`TRACE: ${e.stack}`);
-      }
-    };
-  }
-
   function makeScreenShake() {
-    const body = document.querySelector("body");
-
     const duration = 250;
     let magnitude = 7.5;
     let startTime = null;
     const isShaking = false;
-    const sidebar = mainElt.parentElement.parentElement.children[0];
 
     function shake(currentTime) {
       [mainElt].forEach((target) => {
