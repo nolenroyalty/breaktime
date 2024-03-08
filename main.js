@@ -504,17 +504,23 @@ const injectCSS = () => {
   document.head.appendChild(style);
 };
 
-function createEventDeclineModal(titleText, declineEvents) {
+function createEventDeclineModal(
+  titleText,
+  declineEvents,
+  clearDeclinedEvents
+) {
   const modal = createElt({ classList: ["decline-events-modal"] });
+
   const dismiss = () => {
-    modal.style.animation = "fade-out 0.5s ease";
+    console.log("DISMISSING");
+    modal.style.animation = "fade-out 0.5s ease both";
     setTimeout(() => {
       modal.remove();
     }, 500);
   };
 
   const dismissAndClear = () => {
-    destroyedEvents.clear();
+    clearDeclinedEvents();
     dismiss();
   };
 
@@ -1014,9 +1020,23 @@ const main = function () {
       currentParticleIdx = (currentParticleIdx + 1) % PARTICLE_COUNT;
     };
 
-    return addParticle;
+    const clearParticles = () => {
+      particles.forEach(([elt, animation]) => {
+        if (animation) {
+          animation.cancel();
+        }
+        elt.animation = "fade-out 0.5s ease both";
+      });
+      setTimeout(() => {
+        particles.forEach(([elt, _]) => {
+          elt.remove();
+        });
+      }, 500);
+    };
+
+    return [addParticle, clearParticles];
   }
-  const addParticle = makeAddParticle();
+  const [addParticle, clearParticles] = makeAddParticle();
 
   function addParticlesForEvent(event, bounds) {
     const computedStyle = window.getComputedStyle(event);
@@ -1302,9 +1322,23 @@ const main = function () {
       trailIndex = (trailIndex + 1) % TRAIL_COUNT;
     };
 
-    return addBallTrail;
+    const clearBallTrails = () => {
+      trails.forEach(([trail, animation]) => {
+        if (animation) {
+          animation.cancel();
+        }
+        trail.animation = "fade-out 0.5s ease both";
+      });
+      setTimeout(() => {
+        trails.forEach(([trail, _]) => {
+          trail.remove();
+        });
+      }, 500);
+    };
+
+    return [addBallTrail, clearBallTrails];
   }
-  const addBallTrail = makeAddBallTrail();
+  const [addBallTrail, clearBallTrails] = makeAddBallTrail();
 
   const translatedBounds = (obj, isAllDay) => {
     const bounds = obj.getBoundingClientRect();
@@ -1621,14 +1655,31 @@ const main = function () {
     observer.disconnect();
   };
 
-  const makeTimedOutModal = () => {
-    createEventDeclineModal("Timed Out!", handleDeclineEvents);
+  const fadeOutGame = () => {
+    const elts = [playArea, ballElement, paddleElement, noCollisionZone];
+    elts.forEach((elt) => {
+      elt.style.animation = "fade-out 1s ease both";
+    });
+    clearBallTrails();
+    clearParticles();
+    setTimeout(() => {
+      elts.forEach((elt) => {
+        elt.remove();
+      });
+    }, 1000);
+  };
+
+  const endModal = (text) => {
+    fadeOutGame();
+    createEventDeclineModal(text, handleDeclineEvents, () => {
+      destroyedEvents.clear();
+    });
   };
 
   const stopGameAutomatically = setTimeout(() => {
     console.log("STOPPING");
     RUN_GAME = false;
-    makeTimedOutModal();
+    endModal("Timed Out!");
   }, STOP_AFTER_THIS_MANY_TICKS * TICK_TIME);
 
   const stopGame = () => {
@@ -1637,12 +1688,12 @@ const main = function () {
   };
 
   const makeGameOverModal = () => {
-    createEventDeclineModal("Game Over!", handleDeclineEvents);
+    endModal("Game Over!");
     stopGame();
   };
 
   const makeWonGameModal = () => {
-    createEventDeclineModal("All Meetings Destroyed!", handleDeclineEvents);
+    endModal("All Meetings Destroyed!");
     stopGame();
   };
 
