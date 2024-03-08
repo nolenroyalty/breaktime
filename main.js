@@ -1,12 +1,12 @@
 "use strict";
 
-function createElt(
-  id,
+function createElt({
+  id = null,
   style = {},
   classList = [],
   kind = "div",
-  parent = null
-) {
+  parent = null,
+}) {
   const elt = document.createElement(kind);
   if (id) {
     document.querySelector(`#${id}`)?.remove();
@@ -447,46 +447,39 @@ const injectCSS = () => {
 };
 
 function createEventDeclineModal() {
-  const modal = createElt("decline-events-modal", {}, ["decline-events-modal"]);
-  const title = createElt(
-    "decline-events-modal-title",
-    {},
-    ["decline-events-modal-title"],
-    "span",
-    modal
-  );
+  const modal = createElt({ classList: ["decline-events-modal"] });
+  const title = createElt({
+    classList: ["decline-events-modal-title"],
+    kind: "span",
+    parent: modal,
+  });
   title.textContent = "Actually Decline Your Meetings?";
-  const choices = createElt(
-    null,
-    {},
-    ["decline-events-modal-choices"],
-    "div",
-    modal
-  );
-  const noButton = createElt(
-    null,
-    {},
-    ["decline-events-choice", "decline-events-choice-keep"],
-    "button",
-    choices
-  );
+  const choices = createElt({
+    classList: ["decline-events-modal-choices"],
+    parent: modal,
+  });
+  const noButton = createElt({
+    classList: ["decline-events-choice", "decline-events-choice-keep"],
+    kind: "button",
+    parent: choices,
+  });
   noButton.textContent = "No, keep my meetings";
-  const yesButton = createElt(
-    null,
-    {},
-    ["decline-events-choice", "decline-events-choice-trash"],
-    "button",
-    choices
-  );
-  const yesText = createElt(
-    null,
-    {},
-    ["decline-events-modal-yes-text"],
-    "span",
-    yesButton
-  );
+  const yesButton = createElt({
+    classList: ["decline-events-choice", "decline-events-choice-trash"],
+    kind: "button",
+    parent: choices,
+  });
+  const yesText = createElt({
+    classList: ["decline-events-modal-yes-text"],
+    kind: "span",
+    parent: yesButton,
+  });
   yesText.textContent = "Yes, decline my meetings!";
-  const trashIcon = createElt("trash-can", {}, ["trash-can"], "div", yesButton);
+  const trashIcon = createElt({
+    classList: ["trash-can"],
+    kind: "div",
+    parent: yesButton,
+  });
   createTrashCan(trashIcon);
 }
 
@@ -558,49 +551,54 @@ const main = function () {
   const getBallTop = (ball) => ball.y - ball.r;
   const getBallBottom = (ball) => ball.y + ball.r;
 
-  const playArea = createElt(
-    "_playArea",
-    { "--top": TOP, "--left": LEFT, "--width": WIDTH, "--height": HEIGHT },
-    ["play-area"]
-  );
+  const playArea = createElt({
+    id: "_playArea",
+    style: {
+      "--top": TOP,
+      "--left": LEFT,
+      "--width": WIDTH,
+      "--height": HEIGHT,
+    },
+    classList: ["play-area"],
+  });
 
   /* nroyalty: no more heightOffset hijinks? */
   const [noCollisionZone, noCollisionZoneTop] = (() => {
     let topForCalculations = BOTTOM - SAFE_ZONE_HEIGHT - TOP;
-    const elt = createElt(
-      "_noCollisionZone",
-      {
+    const elt = createElt({
+      id: "_noCollisionZone",
+      style: {
         "--height": SAFE_ZONE_HEIGHT,
         "--left": LEFT,
         "--width": WIDTH,
         "--bottom": BOTTOM_OFFSET,
       },
-      ["no-collision-zone"]
-    );
+      classList: ["no-collision-zone"],
+    });
     return [elt, topForCalculations];
   })();
 
-  const ballElement = createElt(
-    "_ball",
-    {
+  const ballElement = createElt({
+    id: "_ball",
+    style: {
       "--top": TOP,
       "--left": LEFT,
       "--size": BALL_SIZE,
       "--transform-speed": `${TICK_TIME * 1.1}ms`,
     },
-    ["ball", "slide-in-from-bottom"]
-  );
+    classList: ["ball", "slide-in-from-bottom"],
+  });
 
-  const paddleElement = createElt(
-    "_paddle",
-    {
+  const paddleElement = createElt({
+    id: "_paddle",
+    style: {
       "--top": TOP,
       "--left": LEFT,
       "--width": PADDLE_WIDTH,
       "--height": PADDLE_HEIGHT,
     },
-    ["paddle", "slide-in-from-bottom"]
-  );
+    classList: ["paddle", "slide-in-from-bottom"],
+  });
 
   const clamp = (min, max, value) => Math.min(Math.max(min, value), max);
 
@@ -850,7 +848,7 @@ const main = function () {
     const PARTICLE_COUNT = 300;
     let currentParticleIdx = 0;
     const makeParticle = (_, id) => {
-      const elt = createElt(`particle-${id}`, {}, ["particle"], "particle");
+      const elt = createElt({ classList: ["particle"], kind: "particle" });
       return [elt, null];
     };
     const particles = Array.from({ length: PARTICLE_COUNT }, makeParticle);
@@ -1151,16 +1149,15 @@ const main = function () {
     const TRAIL_COUNT = 10;
     const makeTrail = () => {
       const id = Math.floor(Math.random() * 1000000);
-      const elt = createElt(
-        "ball-trail-" + id,
-        {
+      const elt = createElt({
+        style: {
           "--top": TOP,
           "--left": LEFT,
           "--size": BALL_SIZE,
           "--transform-speed": `${TICK_TIME}ms`,
         },
-        ["ball", "hidden-ball"]
-      );
+        classList: ["ball", "hidden-ball"],
+      });
       return [elt, null];
     };
     const trails = Array.from({ length: TRAIL_COUNT }, makeTrail);
