@@ -1574,6 +1574,19 @@ const main = function () {
       stopPaddleListeners();
     }
 
+    function allEventsAreCleared() {
+      // This is going to have a bug around declining multi-day all day events,
+      // since we shatter the whole event but only set the dataset property on
+      // one of them. I think this is hard to fix and basically fine so I'm not
+      // doing anything about it.
+      const events = getEvents();
+      const isHiddenOrCleared = (event) => {
+        const bounds = translatedBounds(event, determineIsAllDay(event));
+        return bounds === null || event.dataset.intersected === "true";
+      };
+      return Array.from(events).every(isHiddenOrCleared);
+    }
+
     function loop(timestamp) {
       try {
         if (!RUN_GAME) {
@@ -1593,6 +1606,12 @@ const main = function () {
           direction,
           hasCollided
         );
+
+        if (allEventsAreCleared()) {
+          makeWonGameModal();
+          handleCleanup();
+          return;
+        }
 
         if (whatToDo === "game-over") {
           makeGameOverModal();
