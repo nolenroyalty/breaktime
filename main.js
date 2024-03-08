@@ -1067,17 +1067,11 @@ const main = function () {
     };
 
     const clearParticles = () => {
-      particles.forEach(([elt, animation]) => {
-        if (animation) {
-          animation.cancel();
-        }
-        elt.animation = "fade-out 0.5s ease both";
-      });
       setTimeout(() => {
         particles.forEach(([elt, _]) => {
           elt.remove();
         });
-      }, 500);
+      }, 1000);
     };
 
     return [addParticle, clearParticles];
