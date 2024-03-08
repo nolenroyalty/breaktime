@@ -41,6 +41,13 @@ const getEvents = () => {
     .querySelectorAll("div[role='button']");
 };
 
+function resetEvents() {
+  getEvents().forEach((event, i) => {
+    event.classList.remove("faded");
+    event.dataset.intersected = "";
+  });
+}
+
 const selectByTitle = (title, count) => {
   const events = getEvents();
   const selected = Array.from(events).filter((event) =>
@@ -1664,6 +1671,7 @@ const main = function () {
   }
 
   const handleDeclineEvents = async () => {
+    resetEvents();
     const observer = startDismissObserver();
     const arr = Array.from(destroyedEvents);
     for (let i = 0; i < arr.length; i++) {
@@ -1692,6 +1700,7 @@ const main = function () {
     fadeOutGame();
     createEventDeclineModal(text, handleDeclineEvents, () => {
       destroyedEvents.clear();
+      resetEvents();
     });
   };
 
@@ -1733,13 +1742,6 @@ const main = function () {
     }
   });
 };
-
-function resetEvents() {
-  getEvents().forEach((event, i) => {
-    event.classList.remove("faded");
-    event.dataset.intersected = "";
-  });
-}
 
 resetEvents();
 main();
