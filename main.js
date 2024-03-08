@@ -217,6 +217,7 @@ const css = `
   --color-grey-transparent: hsla(235deg 5% 35% / 0.7);
   --color-playarea: hsl(235deg 15% 67%);
   --color-borders: hsl(245deg 15% 70%);
+  --color-faded-grey: hsl(235deg 4% 82% / 0.7);
 
   --hue-rotation: 0deg;
   --ball-background: hsl(0deg 20% 50%);
@@ -421,7 +422,7 @@ particle {
 }
 
 .decline-events-choice:hover {
-  background-color: hsl(235deg 4% 82% / 0.7);
+  background-color: var(--color-faded-grey);
 }
 
 .decline-events-modal-close {
@@ -470,6 +471,33 @@ particle {
   to {
     opacity: 0;
   }
+}
+
+@keyframes slideInFromTop {
+  from {
+    transform: translate(-50%, -500px);
+    opacity: 0;
+  }
+
+  to {
+    transform: translate(-50%, -50%);
+    opacity: 1;
+  }
+}
+
+.start-instructions {
+  position: fixed;
+  top: calc(var(--top) * 1px);
+  left: calc(var(--left) * 1px);
+  transform: translate(-50%, -50%);
+  color: var(--google-blue);
+  animation: slideInFromTop 1s ease backwards;
+  font-size: 24px;
+  z-index: 3000;
+  border-radius: 8px;
+  padding: 10px;
+  background-color: var(--color-faded-grey);
+  border: 1px solid var(--google-grey);
 }
 `;
 
@@ -614,7 +642,7 @@ const main = function () {
   const TICK_TIME = 50;
   const BASE_SPEED = 10;
   const PADDLE_SPEED = 12.5;
-  const STOP_AFTER_THIS_MANY_TICKS = 2000;
+  const STOP_AFTER_THIS_MANY_TICKS = 20000;
 
   const mainElt = document.querySelector("div[role='main']");
   const grid = mainElt.querySelector("div[role='grid']");
@@ -717,6 +745,17 @@ const main = function () {
       "--height": PADDLE_HEIGHT,
     },
     classList: ["paddle", "slide-in-from-bottom"],
+  });
+
+  const startInstructions = createElt({
+    id: "_startInstructions",
+    kind: "h2",
+    textContent: "Press space to start",
+    style: {
+      "--top": (TOP + BOTTOM) / 2,
+      "--left": LEFT + WIDTH / 2,
+    },
+    classList: ["start-instructions"],
   });
 
   const clamp = (min, max, value) => Math.min(Math.max(min, value), max);
@@ -1706,8 +1745,17 @@ const main = function () {
 
   const stopGameAutomatically = setTimeout(() => {
     console.log("STOPPING");
-    RUN_GAME = false;
-    endModal("Timed Out!");
+    if (!RUN_GAME) {
+      // we never started; fade out the instructions
+      startInstructions.animation = "fade-out 0.2s ease both";
+      fadeOutGame();
+      setTimeout(() => {
+        startInstructions.remove();
+      }, 200);
+    } else {
+      RUN_GAME = false;
+      endModal("Timed Out!");
+    }
   }, STOP_AFTER_THIS_MANY_TICKS * TICK_TIME);
 
   const stopGame = () => {
@@ -1734,10 +1782,15 @@ const main = function () {
   applyInitialTranslations();
 
   const listener = document.addEventListener("keydown", (e) => {
-    if (e.code === "Space" && !RUN_GAME) {
+    const startKeys = ["ArrowLeft", "ArrowRight", "Space"];
+    if (startKeys.includes(e.code) && !RUN_GAME) {
       console.log("STARTING");
       RUN_GAME = true;
       runMainLoop();
+      startInstructions.animation = "fade-out 0.2s ease both";
+      setTimeout(() => {
+        startInstructions.remove();
+      }, 200);
       document.removeEventListener("keydown", listener);
     }
   });
