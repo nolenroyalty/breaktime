@@ -359,6 +359,15 @@ particle {
   display: var(--display);
 }
 
+@fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
 .decline-events-modal {
   border-radius: 8px;
   font-family: "Google Sans", Roboto, Arial, sans-serif;
@@ -380,11 +389,14 @@ particle {
   transform: translate(-50%, -50%);
   margin: 4px 16px;
   z-index: 2000;
+
+  animation: fade-in 0.5s ease both;
 }
 
 .decline-events-modal-choices {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   gap: 24px;
 }
 
@@ -492,7 +504,7 @@ const injectCSS = () => {
   document.head.appendChild(style);
 };
 
-function createEventDeclineModal(declineEvents) {
+function createEventDeclineModal(titleText, declineEvents) {
   const modal = createElt({ classList: ["decline-events-modal"] });
   const dismiss = () => {
     modal.style.animation = "fade-out 0.5s ease";
@@ -520,8 +532,9 @@ function createEventDeclineModal(declineEvents) {
   const title = createElt({
     classList: ["decline-events-modal-title"],
     kind: "span",
+    style: { "font-size": "16px" },
     parent: titleRow,
-    textContent: "Actually Decline Your Meetings?",
+    textContent: titleText,
   });
   const XButton = createElt({
     classList: ["decline-events-modal-close"],
@@ -530,6 +543,13 @@ function createEventDeclineModal(declineEvents) {
     onSubmit: dismiss,
   });
   const X = createXIcon(XButton);
+  const question = createElt({
+    classList: ["decline-events-modal-question"],
+    kind: "span",
+    style: { "align-self": "center", "font-size": "20px" },
+    parent: modal,
+    textContent: "Actually decline your events?",
+  });
   const choices = createElt({
     classList: ["decline-events-modal-choices"],
     parent: modal,
@@ -561,9 +581,9 @@ function createEventDeclineModal(declineEvents) {
   });
 }
 
-function makeModal() {
+function makeModal(title) {
   injectCSS();
-  createEventDeclineModal(() => {
+  createEventDeclineModal(title, () => {
     console.log("DECLINE EVENTS");
   });
 }
