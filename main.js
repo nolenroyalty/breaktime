@@ -513,11 +513,16 @@ function createEventDeclineModal(titleText, declineEvents) {
     }, 500);
   };
 
+  const dismissAndClear = () => {
+    destroyedEvents.clear();
+    dismiss();
+  };
+
   // declineEvents is async; this function waits for it to complete
   // and then calls dismiss
   const handleDecline = async () => {
-    await declineEvents();
     dismiss();
+    await declineEvents();
   };
 
   const titleRow = createElt({
@@ -540,7 +545,7 @@ function createEventDeclineModal(titleText, declineEvents) {
     classList: ["decline-events-modal-close"],
     kind: "button",
     parent: titleRow,
-    onSubmit: dismiss,
+    onSubmit: dismissAndClear,
   });
   const X = createXIcon(XButton);
   const question = createElt({
@@ -559,7 +564,7 @@ function createEventDeclineModal(titleText, declineEvents) {
     kind: "button",
     parent: choices,
     textContent: "No, keep my meetings",
-    onSubmit: dismiss,
+    onSubmit: dismissAndClear,
   });
   const yesButton = createElt({
     classList: ["decline-events-choice", "decline-events-choice-trash"],
@@ -628,6 +633,7 @@ const main = function () {
   const PADDLE_WIDTH = 100;
   const PADDLE_HEIGHT = 20;
   const HUE_PER_TICK = 360 / (10000 / TICK_TIME);
+  const destroyedEvents = new Set();
 
   let RUN_GAME = false;
   const hueRotation = { ball: 0, paddle: 0 };
@@ -853,7 +859,9 @@ const main = function () {
       direction.y = -Math.abs(direction.y);
       ball.y -= bottom - HEIGHT;
       hasCollided.y = true;
+      return "game-over";
     }
+    return "continue";
   }
 
   /* Reflecting off the center 3rd of the paddle just inverts the Y direction. */
@@ -1351,6 +1359,7 @@ const main = function () {
       event.dataset.intersected = "true";
       addParticlesForEvent(event, eventBounds);
       screenShake();
+      destroyedEvents.add(event);
       const bounced = handleCollision(
         ball,
         eventBounds,
@@ -1361,7 +1370,7 @@ const main = function () {
     }
   }
 
-  function mainLoop() {
+  function mainLoop({ makeGameOverModal, makeWonGameModal }) {
     const direction = { x: 1, y: 1 };
     const hasCollided = { x: false, y: false };
     let ticksUntilCanPaddleBounce = 0;
@@ -1545,7 +1554,18 @@ const main = function () {
         resetTickState(delta);
         applyDirectionDeltas(direction, timestamp, delta);
 
-        handlePlayAreaCollision(nextBall, direction, hasCollided);
+        const whatToDo = handlePlayAreaCollision(
+          nextBall,
+          direction,
+          hasCollided
+        );
+
+        if (whatToDo === "game-over") {
+          makeGameOverModal();
+          handleCleanup();
+          return;
+        }
+
         const collidedWithPaddle = handlePaddleCollision();
         getEvents().forEach((event) => {
           maybeCollideWithEvent(
@@ -1589,18 +1609,50 @@ const main = function () {
 
     return beginLoop;
   }
-  const runMainLoop = mainLoop();
+
+  const handleDeclineEvents = async () => {
+    const observer = startDismissObserver();
+    const arr = Array.from(destroyedEvents);
+    for (let i = 0; i < arr.length; i++) {
+      arr[i].click();
+      await waitForDialogsToClear();
+    }
+    destroyedEvents.clear();
+    observer.disconnect();
+  };
+
+  const makeTimedOutModal = () => {
+    createEventDeclineModal("Timed Out!", handleDeclineEvents);
+  };
+
+  const stopGameAutomatically = setTimeout(() => {
+    console.log("STOPPING");
+    RUN_GAME = false;
+    makeTimedOutModal();
+  }, STOP_AFTER_THIS_MANY_TICKS * TICK_TIME);
+
+  const stopGame = () => {
+    RUN_GAME = false;
+    clearTimeout(stopGameAutomatically);
+  };
+
+  const makeGameOverModal = () => {
+    createEventDeclineModal("Game Over!", handleDeclineEvents);
+    stopGame();
+  };
+
+  const makeWonGameModal = () => {
+    createEventDeclineModal("All Meetings Destroyed!", handleDeclineEvents);
+    stopGame();
+  };
+
+  const runMainLoop = mainLoop({ makeGameOverModal, makeWonGameModal });
 
   function applyInitialTranslations() {
     translateBall(currentBall);
     translatePaddle();
   }
   applyInitialTranslations();
-
-  const stopGame = setTimeout(() => {
-    console.log("STOPPING");
-    RUN_GAME = false;
-  }, STOP_AFTER_THIS_MANY_TICKS * TICK_TIME);
 
   const listener = document.addEventListener("keydown", (e) => {
     if (e.code === "Space" && !RUN_GAME) {
