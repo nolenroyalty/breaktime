@@ -1,14 +1,23 @@
 "use strict";
 
-function createElt(id, style = {}, classList = [], kind = "div") {
-  document.querySelector(`#${id}`)?.remove();
+function createElt(
+  id,
+  style = {},
+  classList = [],
+  kind = "div",
+  parent = null
+) {
   const elt = document.createElement(kind);
-  elt.id = id;
+  if (id) {
+    document.querySelector(`#${id}`)?.remove();
+    elt.id = id;
+  }
   elt.classList.add(...classList);
   Object.keys(style).forEach((key) => {
     elt.style.setProperty(key, style[key]);
   });
-  document.body.appendChild(elt);
+  parent = parent || document.body;
+  parent.appendChild(elt);
   return elt;
 }
 
@@ -170,7 +179,7 @@ async function runTest(title) {
   observer.disconnect();
 }
 
-async function dismissSomeEvents(count = 3) {
+async function declineSomeEvents(count = 3) {
   const events = Array.from(getEvents());
   const observer = startDismissObserver();
   for (let i = 0; i < Math.min(count, events.length); i++) {
@@ -191,6 +200,8 @@ const css = `
   --hue-rotation: 0deg;
   --ball-background: hsl(0deg 20% 50%);
   --paddle-background: hsl(180deg 20% 50%);
+
+  --google-blue: #1a73e8;
 }
 
 @keyframes revealClipPath {
@@ -332,12 +343,146 @@ particle {
   top: var(--top);
   display: var(--display);
 }
+
+.decline-events-modal {
+  border-radius: 8px;
+  font-family: "Google Sans", Roboto, Arial, sans-serif;
+  font-size: 16px;
+  font-weight: 500;
+  border: 1px solid var(--color-grey-transparent);
+  box-shadow: rgba(60, 64, 67, 0.3) 0px 1px 3px 0px, rgba(60, 64, 67, 0.15) 0px 4px 8px 3px;
+  display: flex;
+  align-items: stretch;
+  min-width: 320px;
+  min-height: 150px;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 8px;
+  background: white;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  margin: 4px 16px;
+  z-index: 2000;
+}
+
+.decline-events-modal-choices {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.decline-events-choice {
+  border: none;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  padding: 4px 6px;
+  font-family: "Google Sans", Roboto, Arial, sans-serif;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.decline-events-choice-trash {
+  background-color: #f59f9f;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.decline-events-choice-keep {
+  color: var(--google-blue);
+}
+
+.trash-can {
+  display: flex;
+}
+
+.trash-icon {
+  fill: black;
+}
 `;
 
-const main = function () {
+function createTrashCan(parent) {
+  const svgNS = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(svgNS, "svg");
+  svg.setAttributeNS(null, "width", "20");
+  svg.setAttributeNS(null, "height", "20");
+  svg.setAttributeNS(null, "viewBox", "0 0 24 24");
+  svg.classList.add("trash-icon");
+
+  const path1 = document.createElementNS(svgNS, "path");
+  path1.setAttributeNS(
+    null,
+    "d",
+    "M15 4V3H9v1H4v2h1v13c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V6h1V4h-5zm2 15H7V6h10v13z"
+  );
+
+  const path2 = document.createElementNS(svgNS, "path");
+  path2.setAttributeNS(null, "d", "M9 8h2v9H9zm4 0h2v9h-2z");
+  svg.appendChild(path1);
+  svg.appendChild(path2);
+  parent.appendChild(svg);
+}
+
+const injectCSS = () => {
   const style = document.createElement("style");
   style.appendChild(document.createTextNode(css));
   document.head.appendChild(style);
+};
+
+function createEventDeclineModal() {
+  const modal = createElt("decline-events-modal", {}, ["decline-events-modal"]);
+  const title = createElt(
+    "decline-events-modal-title",
+    {},
+    ["decline-events-modal-title"],
+    "span",
+    modal
+  );
+  title.textContent = "Actually Decline Your Meetings?";
+  const choices = createElt(
+    null,
+    {},
+    ["decline-events-modal-choices"],
+    "div",
+    modal
+  );
+  const noButton = createElt(
+    null,
+    {},
+    ["decline-events-choice", "decline-events-choice-keep"],
+    "button",
+    choices
+  );
+  noButton.textContent = "No, keep my meetings";
+  const yesButton = createElt(
+    null,
+    {},
+    ["decline-events-choice", "decline-events-choice-trash"],
+    "button",
+    choices
+  );
+  const yesText = createElt(
+    null,
+    {},
+    ["decline-events-modal-yes-text"],
+    "span",
+    yesButton
+  );
+  yesText.textContent = "Yes, decline my meetings!";
+  const trashIcon = createElt("trash-can", {}, ["trash-can"], "div", yesButton);
+  createTrashCan(trashIcon);
+}
+
+function makeModal() {
+  injectCSS();
+  createEventDeclineModal();
+}
+
+const main = function () {
+  injectCSS();
 
   const BALL_SIZE = 25;
   const RADIUS = BALL_SIZE / 2;
