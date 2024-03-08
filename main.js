@@ -1,4 +1,17 @@
 "use strict";
+
+function createElt(id, style = {}, classList = [], kind = "div") {
+  document.querySelector(`#${id}`)?.remove();
+  const elt = document.createElement(kind);
+  elt.id = id;
+  elt.classList.add(...classList);
+  Object.keys(style).forEach((key) => {
+    elt.style.setProperty(key, style[key]);
+  });
+  document.body.appendChild(elt);
+  return elt;
+}
+
 const getEvents = () => {
   return document
     .querySelector("div[role='main']")
@@ -413,18 +426,6 @@ const main = function () {
   const getBallRight = (ball) => ball.x + ball.r;
   const getBallTop = (ball) => ball.y - ball.r;
   const getBallBottom = (ball) => ball.y + ball.r;
-
-  function createElt(id, style = {}, classList = [], kind = "div") {
-    document.querySelector(`#${id}`)?.remove();
-    const elt = document.createElement(kind);
-    elt.id = id;
-    elt.classList.add(...classList);
-    Object.keys(style).forEach((key) => {
-      elt.style.setProperty(key, style[key]);
-    });
-    document.body.appendChild(elt);
-    return elt;
-  }
 
   const playArea = createElt(
     "_playArea",
