@@ -6,11 +6,15 @@ function createElt({
   classList = [],
   kind = "div",
   parent = null,
+  textContent = null,
 }) {
   const elt = document.createElement(kind);
   if (id) {
     document.querySelector(`#${id}`)?.remove();
     elt.id = id;
+  }
+  if (textContent) {
+    elt.textContent = textContent;
   }
   elt.classList.add(...classList);
   Object.keys(style).forEach((key) => {
@@ -202,6 +206,7 @@ const css = `
   --paddle-background: hsl(180deg 20% 50%);
 
   --google-blue: #1a73e8;
+  --google-grey: rgb(95, 99, 104);
 }
 
 @keyframes revealClipPath {
@@ -357,7 +362,7 @@ particle {
   min-height: 150px;
   flex-direction: column;
   justify-content: space-between;
-  padding: 8px;
+  padding: 16px 12px 8px;
   background: white;
   position: absolute;
   left: 50%;
@@ -382,17 +387,38 @@ particle {
   font-family: "Google Sans", Roboto, Arial, sans-serif;
   font-weight: 500;
   cursor: pointer;
+  background-color: transparent;
+  transition: background-color 0.2s ease;
+}
+
+.decline-events-choice:hover {
+  background-color: hsl(235deg 4% 82% / 0.7);
+}
+
+.decline-events-modal-close {
+  background: none;
+  border: none;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  transition: fill 0.2s ease;
+  cursor: pointer;
+}
+
+.decline-events-modal-close:hover .x-icon{
+  fill: black;
 }
 
 .decline-events-choice-trash {
-  background-color: #f59f9f;
+  /* color: #f59f9f; */
+  color: var(--google-blue);
   display: flex;
   justify-content: space-between;
   gap: 8px;
 }
 
 .decline-events-choice-keep {
-  color: var(--google-blue);
+  color: var(--google-grey);
 }
 
 .trash-can {
@@ -400,11 +426,12 @@ particle {
 }
 
 .x-icon {
-  fill: rgb(95, 99, 104);
+  fill: var(--google-grey);
+  transition: fill 0.2s ease;
 }
 
 .trash-icon {
-  fill: black;
+  fill: var(--google-blue);
 }
 `;
 
@@ -434,7 +461,7 @@ function createTrashCan(parent) {
 }
 
 function createXIcon(parent) {
-  paths = [
+  const paths = [
     "M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41z",
   ];
   return createSvgIcon(parent, ["x-icon"], paths);
@@ -448,12 +475,28 @@ const injectCSS = () => {
 
 function createEventDeclineModal() {
   const modal = createElt({ classList: ["decline-events-modal"] });
+
+  const titleRow = createElt({
+    kind: "div",
+    parent: modal,
+    style: {
+      display: "flex",
+      "justify-content": "space-between",
+      "align-items": "center",
+    },
+  });
   const title = createElt({
     classList: ["decline-events-modal-title"],
     kind: "span",
-    parent: modal,
+    parent: titleRow,
+    textContent: "Actually Decline Your Meetings?",
   });
-  title.textContent = "Actually Decline Your Meetings?";
+  const XButton = createElt({
+    classList: ["decline-events-modal-close"],
+    kind: "button",
+    parent: titleRow,
+  });
+  const X = createXIcon(XButton);
   const choices = createElt({
     classList: ["decline-events-modal-choices"],
     parent: modal,
@@ -462,25 +505,25 @@ function createEventDeclineModal() {
     classList: ["decline-events-choice", "decline-events-choice-keep"],
     kind: "button",
     parent: choices,
+    textContent: "No, keep my meetings",
   });
-  noButton.textContent = "No, keep my meetings";
   const yesButton = createElt({
     classList: ["decline-events-choice", "decline-events-choice-trash"],
     kind: "button",
     parent: choices,
   });
-  const yesText = createElt({
-    classList: ["decline-events-modal-yes-text"],
-    kind: "span",
-    parent: yesButton,
-  });
-  yesText.textContent = "Yes, decline my meetings!";
   const trashIcon = createElt({
     classList: ["trash-can"],
     kind: "div",
     parent: yesButton,
   });
   createTrashCan(trashIcon);
+  const yesText = createElt({
+    classList: ["decline-events-modal-yes-text"],
+    kind: "span",
+    parent: yesButton,
+    textContent: "Yes, decline my meetings!",
+  });
 }
 
 function makeModal() {
