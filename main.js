@@ -225,6 +225,7 @@ const css = `
 
   --google-blue: #1a73e8;
   --google-grey: rgb(95, 99, 104);
+  --google-grey-transparent: rgba(95, 99, 104, 0.5);
 }
 
 @keyframes revealClipPath {
@@ -497,7 +498,8 @@ particle {
   border-radius: 8px;
   padding: 10px;
   background-color: var(--color-faded-grey);
-  border: 1px solid var(--google-grey);
+  border: 1px solid var(--google-grey-transparent);
+  transition: opacity 0.3s ease;
 }
 `;
 
@@ -1741,11 +1743,11 @@ const main = function () {
     console.log("STOPPING");
     if (!RUN_GAME) {
       // we never started; fade out the instructions
-      startInstructions.animation = "fade-out 0.2s ease both";
+      startInstructions.style.animation = "fade-out 0.3s ease both";
       fadeOutGame();
       setTimeout(() => {
         startInstructions.remove();
-      }, 200);
+      }, 300);
     } else {
       RUN_GAME = false;
       endModal("Timed Out!");
@@ -1781,10 +1783,10 @@ const main = function () {
       console.log("STARTING");
       RUN_GAME = true;
       runMainLoop();
-      startInstructions.animation = "fade-out 0.2s ease both";
+      startInstructions.style.animation = "fade-out 0.3s ease both";
       setTimeout(() => {
         startInstructions.remove();
-      }, 200);
+      }, 300);
       document.removeEventListener("keydown", listener);
     }
   });
