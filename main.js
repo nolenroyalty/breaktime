@@ -262,7 +262,6 @@ const css = `
   background-color: var(--ball-background);
   border-radius: 50%; 
   will-change: transform;
-  /* transition: opacity 1s ease, filter(var(--transform-speed)) linear; */
   transition: opacity 1s ease;
   filter: hue-rotate(var(--hue-rotation));
   border: 2px solid var(--color-grey-transparent);
@@ -310,22 +309,13 @@ const css = `
   border-radius: 2px;
   filter: hue-rotate(var(--hue-rotation));
   z-index: 1002;
-  /* transition: transform 0.05s linear, opacity 1s ease; */
   transition: opacity 1s ease;
   transform-origin: bottom center;
-}
-
-.transparent {
-  /* opacity: 0; */
 }
 
 .faded {
   opacity: 0.1;
   transition: opacity 0.5s ease, background-color 0.5s ease;
-}
-
-.brickEvent {
-  /* border-radius: 0; */
 }
 
 particle {
@@ -341,18 +331,6 @@ particle {
   left: var(--left);
   top: var(--top);
   display: var(--display);
-}
-
-[data-style-id="_nolenEventArea"] *::after {
-  content: "";
-  display: block;
-  height: 150px;
-}
-
-.extend-bottom::after {
-  content: "";
-  display: block;
-  height: 150px;
 }
 `;
 
@@ -373,10 +351,6 @@ const main = function () {
 
   const bottomPlayArea = grid.children[1];
   const bottomPlayRect = bottomPlayArea.getBoundingClientRect();
-  /* We want to make sure you can delete events at the end of the day,
-  so we need to push up the bottom boundary of the bottom of the event
-  container. We grab this element to do that. */
-  const playAreaToRestrict = bottomPlayArea.children[0];
   /* This only exists if there are all-day events on the calendar. */
   const topPlayArea = grid.querySelector(
     "div[role='row'][aria-hidden='false']"
@@ -391,10 +365,8 @@ const main = function () {
     avoid shattering it) - and when we generate particles we should use this
     to cap the top of the particle area. */
   const NON_ALL_DAY_EVENT_TOP = topPlayArea ? topPlayRect.bottom - TOP : 0;
-  console.log(`NON ALL DAY: ${NON_ALL_DAY_EVENT_TOP}`);
   const RIGHT = Math.max(topPlayRect.right, bottomPlayRect.right);
   const BOTTOM_OFFSET = 5;
-  const TRANSLATE_EVENT_AREA_TO_AVOID_COLLISIONS = true;
   const SAFE_ZONE_HEIGHT = 150 - BOTTOM_OFFSET;
   const BOTTOM =
     Math.max(bottomPlayRect.bottom, window.innerHeight - BOTTOM_OFFSET) -
@@ -430,7 +402,7 @@ const main = function () {
   const playArea = createElt(
     "_playArea",
     { "--top": TOP, "--left": LEFT, "--width": WIDTH, "--height": HEIGHT },
-    ["play-area", "transparent"]
+    ["play-area"]
   );
 
   /* nroyalty: no more heightOffset hijinks? */
@@ -457,7 +429,7 @@ const main = function () {
       "--size": BALL_SIZE,
       "--transform-speed": `${TICK_TIME * 1.1}ms`,
     },
-    ["ball", "transparent", "slide-in-from-bottom"]
+    ["ball", "slide-in-from-bottom"]
   );
 
   const paddleElement = createElt(
@@ -468,7 +440,7 @@ const main = function () {
       "--width": PADDLE_WIDTH,
       "--height": PADDLE_HEIGHT,
     },
-    ["paddle", "transparent", "slide-in-from-bottom"]
+    ["paddle", "slide-in-from-bottom"]
   );
 
   const clamp = (min, max, value) => Math.min(Math.max(min, value), max);
@@ -631,7 +603,6 @@ const main = function () {
   function handleCenterCollision(direction, hasCollided, tickId) {
     direction.y = -1 * Math.abs(direction.y);
     hasCollided.y = true;
-    console.log(`[${tickId}] COLLIDED WITH CENTER`);
   }
 
   const DO_REFLECTION_COLLISION = false;
@@ -1016,9 +987,7 @@ const main = function () {
     hueRotation.ball += amount.ball || 0;
     hueRotation.paddle += amount.paddle || 0;
     if (hueRotation.paddle > 360) {
-      console.log(`HUE ROTATION RESET: ${hueRotation.paddle}`);
       hueRotation.paddle = hueRotation.paddle % 360;
-      console.log(`HUE ROTATION: ${hueRotation.paddle}`);
     }
     hueRotation.ball = hueRotation.ball % 360;
 
@@ -1391,15 +1360,6 @@ const main = function () {
     RUN_GAME = false;
   }, STOP_AFTER_THIS_MANY_TICKS * TICK_TIME);
 
-  const setup = setTimeout(() => {
-    if (false && TRANSLATE_EVENT_AREA_TO_AVOID_COLLISIONS) {
-      playAreaToRestrict.style.transition = "transform 0.75s ease";
-      playAreaToRestrict.style.transform = `translateY(-${
-        SAFE_ZONE_HEIGHT + BOTTOM_OFFSET
-      }px)`;
-    }
-  }, 1);
-
   const listener = document.addEventListener("keydown", (e) => {
     if (e.code === "Space" && !RUN_GAME) {
       console.log("STARTING");
@@ -1413,7 +1373,6 @@ const main = function () {
 function resetEvents() {
   getEvents().forEach((event, i) => {
     event.classList.remove("faded");
-    event.classList.add("brickEvent");
     event.dataset.intersected = "";
   });
 }
