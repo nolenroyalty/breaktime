@@ -399,31 +399,45 @@ particle {
   display: flex;
 }
 
+.x-icon {
+  fill: rgb(95, 99, 104);
+}
+
 .trash-icon {
   fill: black;
 }
 `;
 
-function createTrashCan(parent) {
+function createSvgIcon(parent, classList, paths) {
   const svgNS = "http://www.w3.org/2000/svg";
   const svg = document.createElementNS(svgNS, "svg");
+  svg.classList.add(...classList);
   svg.setAttributeNS(null, "width", "20");
   svg.setAttributeNS(null, "height", "20");
   svg.setAttributeNS(null, "viewBox", "0 0 24 24");
-  svg.classList.add("trash-icon");
 
-  const path1 = document.createElementNS(svgNS, "path");
-  path1.setAttributeNS(
-    null,
-    "d",
-    "M15 4V3H9v1H4v2h1v13c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V6h1V4h-5zm2 15H7V6h10v13z"
-  );
-
-  const path2 = document.createElementNS(svgNS, "path");
-  path2.setAttributeNS(null, "d", "M9 8h2v9H9zm4 0h2v9h-2z");
-  svg.appendChild(path1);
-  svg.appendChild(path2);
+  paths.forEach((d) => {
+    const path = document.createElementNS(svgNS, "path");
+    path.setAttributeNS(null, "d", d);
+    svg.appendChild(path);
+  });
   parent.appendChild(svg);
+  return svg;
+}
+
+function createTrashCan(parent) {
+  const paths = [
+    "M15 4V3H9v1H4v2h1v13c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V6h1V4h-5zm2 15H7V6h10v13z",
+    "M9 8h2v9H9zm4 0h2v9h-2z",
+  ];
+  return createSvgIcon(parent, ["trash-icon"], paths);
+}
+
+function createXIcon(parent) {
+  paths = [
+    "M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41z",
+  ];
+  return createSvgIcon(parent, ["x-icon"], paths);
 }
 
 const injectCSS = () => {
