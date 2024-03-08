@@ -500,6 +500,7 @@ particle {
   background-color: var(--color-faded-grey);
   border: 1px solid var(--google-grey-transparent);
   transition: opacity 0.3s ease;
+  backdrop-filter: blur(4px);
 }
 `;
 
