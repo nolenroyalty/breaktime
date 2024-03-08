@@ -7,7 +7,17 @@ function createElt({
   kind = "div",
   parent = null,
   textContent = null,
+  onSubmit = null,
 }) {
+  if (onSubmit) {
+    const form = document.createElement("form");
+    form.onsubmit = (e) => {
+      e.preventDefault();
+      onSubmit();
+    };
+    parent.appendChild(form);
+    parent = form;
+  }
   const elt = document.createElement(kind);
   if (id) {
     document.querySelector(`#${id}`)?.remove();
@@ -433,6 +443,15 @@ particle {
 .trash-icon {
   fill: var(--google-blue);
 }
+
+@keyframes fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
 `;
 
 function createSvgIcon(parent, classList, paths) {
@@ -473,8 +492,21 @@ const injectCSS = () => {
   document.head.appendChild(style);
 };
 
-function createEventDeclineModal() {
+function createEventDeclineModal(declineEvents) {
   const modal = createElt({ classList: ["decline-events-modal"] });
+  const dismiss = () => {
+    modal.style.animation = "fade-out 0.5s ease";
+    setTimeout(() => {
+      modal.remove();
+    }, 500);
+  };
+
+  // declineEvents is async; this function waits for it to complete
+  // and then calls dismiss
+  const handleDecline = async () => {
+    await declineEvents();
+    dismiss();
+  };
 
   const titleRow = createElt({
     kind: "div",
@@ -495,6 +527,7 @@ function createEventDeclineModal() {
     classList: ["decline-events-modal-close"],
     kind: "button",
     parent: titleRow,
+    onSubmit: dismiss,
   });
   const X = createXIcon(XButton);
   const choices = createElt({
@@ -506,11 +539,13 @@ function createEventDeclineModal() {
     kind: "button",
     parent: choices,
     textContent: "No, keep my meetings",
+    onSubmit: dismiss,
   });
   const yesButton = createElt({
     classList: ["decline-events-choice", "decline-events-choice-trash"],
     kind: "button",
     parent: choices,
+    onSubmit: handleDecline,
   });
   const trashIcon = createElt({
     classList: ["trash-can"],
@@ -528,7 +563,9 @@ function createEventDeclineModal() {
 
 function makeModal() {
   injectCSS();
-  createEventDeclineModal();
+  createEventDeclineModal(() => {
+    console.log("DECLINE EVENTS");
+  });
 }
 
 const main = function () {
