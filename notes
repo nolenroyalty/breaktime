@@ -1,3 +1,0 @@
-
-So when I'm finding intersections I want to calculate a "bounce" angle. I want the bounce angle to be similar to the way that bouncing works in breakout (where I think the angle is relative to where an object was hit - e.g. hitting the left side of the paddle produces one angle, hitting the middle 
-
