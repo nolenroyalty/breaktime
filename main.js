@@ -225,7 +225,7 @@ const css = `
 
   --google-blue: #1a73e8;
   --google-grey: rgb(95, 99, 104);
-  --google-grey-transparent: rgba(95, 99, 104, 0.5);
+  --google-grey-transparent: rgba(95, 99, 104, 0.75);
 }
 
 @keyframes revealClipPath {
@@ -631,14 +631,14 @@ function createEventDeclineModal(
 }
 
 function makeModal(title) {
-  injectCSS();
+  //injectCSS();
   createEventDeclineModal(title, () => {
     console.log("DECLINE EVENTS");
   });
 }
 
 const main = function () {
-  injectCSS();
+  //injectCSS();
 
   const BALL_SIZE = 25;
   const RADIUS = BALL_SIZE / 2;
