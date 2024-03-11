@@ -679,7 +679,7 @@ const main = function () {
   const HUE_PER_TICK = 360 / (10000 / TICK_TIME);
   const destroyedEvents = new Set();
 
-  let RUN_GAME = false;
+  let GAME_STATE = "waiting-to-start";
   const hueRotation = { ball: 0, paddle: 0 };
   let currentBall = {
     x: WIDTH / 2,
@@ -1196,7 +1196,7 @@ const main = function () {
     const duration = 250;
     let magnitude = 7.5;
     let startTime = null;
-    const isShaking = false;
+    let isShaking = false;
 
     function shake(currentTime) {
       [mainElt].forEach((target) => {
@@ -1632,7 +1632,7 @@ const main = function () {
 
     function loop(timestamp) {
       try {
-        if (!RUN_GAME) {
+        if (GAME_STATE === "ended") {
           handleCleanup();
           return;
         }
@@ -1742,32 +1742,33 @@ const main = function () {
 
   const stopGameAutomatically = setTimeout(() => {
     console.log("STOPPING");
-    if (!RUN_GAME) {
+    if (GAME_STATE === "waiting-to-start") {
       // we never started; fade out the instructions
       startInstructions.style.animation = "fade-out 0.3s ease both";
+      GAME_STATE = "ended";
       fadeOutGame();
       setTimeout(() => {
         startInstructions.remove();
       }, 300);
     } else {
-      RUN_GAME = false;
+      GAME_STATE = "ended";
       endModal("Timed Out!");
     }
   }, STOP_AFTER_THIS_MANY_TICKS * TICK_TIME);
 
   const stopGame = () => {
-    RUN_GAME = false;
+    GAME_STATE = "ended";
     clearTimeout(stopGameAutomatically);
   };
 
   const makeGameOverModal = () => {
-    endModal("Game Over!");
     stopGame();
+    endModal("Game Over!");
   };
 
   const makeWonGameModal = () => {
-    endModal("All Meetings Destroyed!");
     stopGame();
+    endModal("All Meetings Destroyed!");
   };
 
   const runMainLoop = mainLoop({ makeGameOverModal, makeWonGameModal });
@@ -1780,9 +1781,9 @@ const main = function () {
 
   const listener = document.addEventListener("keydown", (e) => {
     const startKeys = ["ArrowLeft", "ArrowRight", "Space"];
-    if (startKeys.includes(e.code) && !RUN_GAME) {
+    if (startKeys.includes(e.code) && GAME_STATE === "waiting-to-start") {
       console.log("STARTING");
-      RUN_GAME = true;
+      GAME_STATE = "running";
       runMainLoop();
       startInstructions.style.animation = "fade-out 0.3s ease both";
       setTimeout(() => {
