@@ -1,6 +1,6 @@
 chrome.runtime.onInstalled.addListener(() => {
   chrome.action.setBadgeText({
-    text: "OFF",
+    text: "",
   });
 });
 
@@ -14,16 +14,16 @@ chrome.action.onClicked.addListener(async (tab) => {
     nextState = prevState === "ON" ? "OFF" : "ON";
     await chrome.action.setBadgeText({
       tabId: tab.id,
-      text: nextState,
+      text: nextState === "ON" ? "ON" : "",
     });
-  }
 
-  const cssArgs = { files: ["style.css"], target: { tabId: tab.id } };
-  const jsArgs = { files: ["main.js"], target: { tabId: tab.id } };
-  if (nextState === "ON") {
-    await chrome.scripting.insertCSS(cssArgs);
-    await chrome.scripting.executeScript(jsArgs);
-  } else if (nextState === "OFF") {
-    await chrome.scripting.removeCSS(cssArgs);
+    const cssArgs = { files: ["style.css"], target: { tabId: tab.id } };
+    const jsArgs = { files: ["main.js"], target: { tabId: tab.id } };
+    if (nextState === "ON") {
+      await chrome.scripting.insertCSS(cssArgs);
+      await chrome.scripting.executeScript(jsArgs);
+    } else if (nextState === "OFF") {
+      await chrome.scripting.removeCSS(cssArgs);
+    }
   }
 });
