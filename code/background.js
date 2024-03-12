@@ -40,6 +40,7 @@ chrome.action.onClicked.addListener(async (tab) => {
       await injectCss(tab.id);
       await injectJs(tab.id);
     } else if (nextState === "OFF") {
+      chrome.tabs.sendMessage(tab.id, { action: "stopGame" });
       await removeCss(tab.id);
     }
   }

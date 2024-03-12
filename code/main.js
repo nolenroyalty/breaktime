@@ -1421,23 +1421,45 @@ function main() {
     });
   };
 
+  const stopGameBeforeStarting = () => {
+    startInstructions.style.animation = "fade-out 0.3s ease both";
+    GAME_STATE = "ended";
+    fadeOutGame();
+    setTimeout(() => {
+      startInstructions.remove();
+      signalToChromeThatWeAreDone();
+    }, 300);
+  };
+
   const stopGameAutomatically = setTimeout(() => {
     console.log("STOPPING");
     if (GAME_STATE === "waiting-to-start") {
       // we never started; fade out the instructions
-      startInstructions.style.animation = "fade-out 0.3s ease both";
-      GAME_STATE = "ended";
-      fadeOutGame();
-      setTimeout(() => {
-        startInstructions.remove();
-        signalToChromeThatWeAreDone();
-      }, 300);
+      stopGameBeforeStarting();
     } else {
       GAME_STATE = "ended";
       endModal("Timed Out!");
     }
   }, STOP_AFTER_THIS_MANY_TICKS * TICK_TIME);
 
+  chrome.runtime.onMessage.addListener((request) => {
+    if (request.action === "stopGame") {
+      if (GAME_STATE === "waiting-to-start") {
+        stopGameBeforeStarting();
+      } else if (GAME_STATE === "ended") {
+        // nothing to do
+      } else if (GAME_STATE === "running") {
+        GAME_STATE = "ended";
+        clearTimeout(stopGameAutomatically);
+        fadeOutGame();
+        resetEvents();
+        destroyedEvents.clear();
+      }
+      stopGame();
+    } else {
+      console.warn("UNKNOWN MESSAGE: ", request);
+    }
+  });
   const stopGame = () => {
     GAME_STATE = "ended";
     clearTimeout(stopGameAutomatically);
