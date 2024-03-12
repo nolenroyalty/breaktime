@@ -320,6 +320,41 @@ function createEventDeclineModal(
   });
 }
 
+function clamp(min, max, value) {
+  return Math.min(Math.max(min, value), max);
+}
+
+// nroyalty: make sure this handles things in the right order
+function addTransform(elt, transform, key) {
+  const prefix = `data-transform-`;
+  elt.setAttribute(prefix + key, transform);
+  const transforms = [];
+  for (const [k, v] of Object.entries(elt.dataset)) {
+    if (k.startsWith("transform")) {
+      transforms.push(v);
+    }
+  }
+  elt.style.transform = transforms.join(" ");
+}
+
+function removeTransform(elt, key) {
+  const prefix = `data-transform-`;
+  elt.removeAttribute(prefix + key);
+  const transforms = [];
+  for (const [k, v] of Object.entries(elt.dataset)) {
+    if (k.startsWith("transform")) {
+      transforms.push(v);
+    }
+  }
+  elt.style.transform = transforms.join(" ");
+}
+
+function translate(elt, x, y) {
+  addTransform(elt, `translate(${x}px, ${y}px)`, "translate");
+  elt.style.setProperty("--translate-x", x + "px");
+  elt.style.setProperty("--translate-y", y + "px");
+}
+
 function main() {
   const BALL_SIZE = 25;
   const RADIUS = BALL_SIZE / 2;
@@ -442,39 +477,6 @@ function main() {
     classList: ["start-instructions"],
   });
 
-  const clamp = (min, max, value) => Math.min(Math.max(min, value), max);
-
-  // nroyalty: make sure this handles things in the right order
-  function addTransform(elt, transform, key) {
-    const prefix = `data-transform-`;
-    elt.setAttribute(prefix + key, transform);
-    const transforms = [];
-    for (const [k, v] of Object.entries(elt.dataset)) {
-      if (k.startsWith("transform")) {
-        transforms.push(v);
-      }
-    }
-    elt.style.transform = transforms.join(" ");
-  }
-
-  function removeTransform(elt, key) {
-    const prefix = `data-transform-`;
-    elt.removeAttribute(prefix + key);
-    const transforms = [];
-    for (const [k, v] of Object.entries(elt.dataset)) {
-      if (k.startsWith("transform")) {
-        transforms.push(v);
-      }
-    }
-    elt.style.transform = transforms.join(" ");
-  }
-
-  function translate(elt, x, y) {
-    addTransform(elt, `translate(${x}px, ${y}px)`, "translate");
-    elt.style.setProperty("--translate-x", x + "px");
-    elt.style.setProperty("--translate-y", y + "px");
-  }
-
   function translateBall(ball) {
     const left = getBallLeft(ball);
     const top = getBallTop(ball);
@@ -483,16 +485,6 @@ function main() {
 
   function translatePaddle() {
     translate(paddleElement, paddleRect.left, paddleRect.top);
-  }
-
-  function rotateForVector(elt, dx, dy) {
-    // dy is negative because the y axis is inverted in the browser.
-    let angle = Math.atan2(dy, dx) * (180 / Math.PI);
-    if (angle < 0) {
-      angle += 360;
-    }
-
-    addTransform(elt, `rotate(${angle}deg)`, "rotate");
   }
 
   function getClosestPointToCircle(circle, rect) {
