@@ -254,8 +254,6 @@ function createEventDeclineModal(
     dismiss();
   };
 
-  // declineEvents is async; this function waits for it to complete
-  // and then calls dismiss
   const handleDecline = async () => {
     dismiss();
     await declineEvents();
