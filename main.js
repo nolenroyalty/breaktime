@@ -35,11 +35,11 @@ function createElt({
   return elt;
 }
 
-const getEvents = () => {
+function getEvents() {
   return document
     .querySelector("div[role='main']")
     .querySelectorAll("div[role='button']");
-};
+}
 
 function resetEvents() {
   getEvents().forEach((event, i) => {
@@ -48,15 +48,15 @@ function resetEvents() {
   });
 }
 
-const selectByTitle = (title, count) => {
+function selectByTitle(title, count) {
   const events = getEvents();
   const selected = Array.from(events).filter((event) =>
     event.textContent.includes(title)
   );
   return selected.slice(0, count);
-};
+}
 
-const findButtonToClick = (candidates, text, getText) => {
+function findButtonToClick(candidates, text, getText) {
   const matches = Array.from(candidates).filter((candidate) =>
     getText(candidate).toLowerCase().includes(text)
   );
@@ -69,23 +69,23 @@ const findButtonToClick = (candidates, text, getText) => {
     console.warn(`NO MATCHES for ${text}`);
     return false;
   }
-};
+}
 
-const findButtonByText = (candidates, text) => {
+function findButtonByText(candidates, text) {
   return findButtonToClick(
     candidates,
     text,
     (candidate) => candidate.textContent
   );
-};
+}
 
-const findButtonByAriaLabel = (candidates, text) => {
+function findButtonByAriaLabel(candidates, text) {
   return findButtonToClick(candidates, text, (candidate) =>
     candidate.getAttribute("aria-label")
   );
-};
+}
 
-const maybeDeclineRecurringEvent = (dialog) => {
+function maybeDeclineRecurringEvent(dialog) {
   console.log("CONSIDER DECLINE RECURRING");
   const okButton = findButtonByText(
     dialog.querySelectorAll("div[role='button']"),
@@ -97,9 +97,9 @@ const maybeDeclineRecurringEvent = (dialog) => {
   } else {
     return false;
   }
-};
+}
 
-const closeEvent = (buttons) => {
+function closeEvent(buttons) {
   const closeButton = findButtonByAriaLabel(buttons, "close");
   if (closeButton) {
     closeButton.click();
@@ -107,9 +107,9 @@ const closeEvent = (buttons) => {
   } else {
     return false;
   }
-};
+}
 
-const maybeDeclineBaseEvent = (dialog) => {
+function maybeDeclineBaseEvent(dialog) {
   const buttons = dialog.querySelectorAll("button");
   const declineButton = findButtonByText(buttons, "no");
   if (!declineButton) {
@@ -123,9 +123,9 @@ const maybeDeclineBaseEvent = (dialog) => {
     declineButton.click();
     return true;
   }
-};
+}
 
-const detectDialogAddition = (mutations, observer) => {
+function detectDialogAddition(mutations, observer) {
   console.log("DETECTING DIALOG ADDITION");
   for (const mutation of mutations) {
     if (mutation.type === "childList") {
@@ -147,7 +147,7 @@ const detectDialogAddition = (mutations, observer) => {
       });
     }
   }
-};
+}
 
 function waitForDialogsToClear() {
   let dialogCount = 0;
@@ -185,12 +185,12 @@ function waitForDialogsToClear() {
   });
 }
 
-const startDismissObserver = () => {
+function startDismissObserver() {
   const observer = new MutationObserver(detectDialogAddition);
   const observerConfig = { childList: true, subtree: true };
   observer.observe(document.body, observerConfig);
   return observer;
-};
+}
 
 async function declineSomeEvents(count = 3) {
   const events = Array.from(getEvents());
@@ -320,7 +320,7 @@ function createEventDeclineModal(
   });
 }
 
-const main = function () {
+function main() {
   const BALL_SIZE = 25;
   const RADIUS = BALL_SIZE / 2;
   const TICK_TIME = 50;
@@ -1473,7 +1473,7 @@ const main = function () {
       document.removeEventListener("keydown", listener);
     }
   });
-};
+}
 
 resetEvents();
 main();
