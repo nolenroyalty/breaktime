@@ -1,6 +1,7 @@
 # BreakTime
 
-![BreakTime running inside Google Calendar](./images/breaktime-final-readme.gif)
+<!-- ![BreakTime running inside Google Calendar](./images/breaktime-final-readme.gif) -->
+<img src="./images/breaktime-final-readme.gif" alt="BreakTime running inside Google Calendar" width="500px" height="500px" />
 
 This is an implementation of [Breakout](<https://en.wikipedia.org/wiki/Breakout_(video_game)>) (aka [BrickBreaker](https://en.wikipedia.org/wiki/Brick_Breaker)) that runs inside Google Calendar.
 
