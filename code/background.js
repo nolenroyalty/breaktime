@@ -12,17 +12,17 @@ const getNextState = async (tabId) => {
 };
 
 const injectCss = async (tabId) => {
-  const cssArgs = { files: ["style.css"], target: { tabId } };
+  const cssArgs = { files: ["./code/style.css"], target: { tabId } };
   await chrome.scripting.insertCSS(cssArgs);
 };
 
 const injectJs = async (tabId) => {
-  const jsArgs = { files: ["main.js"], target: { tabId } };
+  const jsArgs = { files: ["./code/main.js"], target: { tabId } };
   await chrome.scripting.executeScript(jsArgs);
 };
 
 const removeCss = async (tabId) => {
-  const cssArgs = { files: ["style.css"], target: { tabId } };
+  const cssArgs = { files: ["./code/style.css"], target: { tabId } };
   await chrome.scripting.removeCSS(cssArgs);
 };
 
