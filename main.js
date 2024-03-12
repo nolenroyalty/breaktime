@@ -355,6 +355,66 @@ function translate(elt, x, y) {
   elt.style.setProperty("--translate-y", y + "px");
 }
 
+function getClosestPointToCircle(circle, rect) {
+  const closestX = clamp(rect.left, rect.right, circle.x);
+  const closestY = clamp(rect.top, rect.bottom, circle.y);
+  return { x: closestX, y: closestY };
+}
+
+function getDistance(obj1, obj2) {
+  const dx = obj1.x - obj2.x;
+  const dy = obj1.y - obj2.y;
+  return Math.sqrt(dx * dx + dy * dy);
+}
+
+function circleCollidesWithRect(circle, closestPoint) {
+  const distance = getDistance(circle, closestPoint);
+  return distance < circle.r;
+}
+
+function detectCircularCollision(ball, collisionRect) {
+  const closestPoint = getClosestPointToCircle(ball, collisionRect);
+  const collided = circleCollidesWithRect(ball, closestPoint);
+  return collided;
+}
+
+function magnitude(v) {
+  return Math.sqrt(v.x * v.x + v.y * v.y);
+}
+
+function normalize(v) {
+  const mag = magnitude(v);
+  return { x: v.x / mag, y: v.y / mag };
+}
+
+function dotProduct(v1, v2) {
+  return v1.x * v2.x + v1.y * v2.y;
+}
+
+function truncateDigits(v, digits = 2) {
+  const amount = Math.pow(10, digits);
+  return Math.floor(v * amount) / amount;
+}
+function truncateVector(v, digits = 2) {
+  return {
+    x: truncateDigits(v.x, digits),
+    y: truncateDigits(v.y, digits),
+  };
+}
+
+function subtractVectors(v1, v2) {
+  return { x: v1.x - v2.x, y: v1.y - v2.y };
+}
+
+function multiplyVector(v, scalar) {
+  return { x: v.x * scalar, y: v.y * scalar };
+}
+
+function scaleVectorToRoot2(v) {
+  const scaled = multiplyVector(normalize(v), Math.sqrt(2));
+  return truncateVector(scaled, 2);
+}
+
 function main() {
   const BALL_SIZE = 25;
   const RADIUS = BALL_SIZE / 2;
@@ -485,29 +545,6 @@ function main() {
 
   function translatePaddle() {
     translate(paddleElement, paddleRect.left, paddleRect.top);
-  }
-
-  function getClosestPointToCircle(circle, rect) {
-    const closestX = clamp(rect.left, rect.right, circle.x);
-    const closestY = clamp(rect.top, rect.bottom, circle.y);
-    return { x: closestX, y: closestY };
-  }
-
-  function getDistance(obj1, obj2) {
-    const dx = obj1.x - obj2.x;
-    const dy = obj1.y - obj2.y;
-    return Math.sqrt(dx * dx + dy * dy);
-  }
-
-  function circleCollidesWithRect(circle, closestPoint) {
-    const distance = getDistance(circle, closestPoint);
-    return distance < circle.r;
-  }
-
-  function detectCircularCollision(ball, collisionRect) {
-    const closestPoint = getClosestPointToCircle(ball, collisionRect);
-    const collided = circleCollidesWithRect(ball, closestPoint);
-    return collided;
   }
 
   const ticksToCollision = (center, side, direction) =>
@@ -826,43 +863,6 @@ function main() {
         easing: "ease-out",
       });
     }
-  }
-
-  function magnitude(v) {
-    return Math.sqrt(v.x * v.x + v.y * v.y);
-  }
-
-  function normalize(v) {
-    const mag = magnitude(v);
-    return { x: v.x / mag, y: v.y / mag };
-  }
-
-  function dotProduct(v1, v2) {
-    return v1.x * v2.x + v1.y * v2.y;
-  }
-
-  function truncateDigits(v, digits = 2) {
-    const amount = Math.pow(10, digits);
-    return Math.floor(v * amount) / amount;
-  }
-  function truncateVector(v, digits = 2) {
-    return {
-      x: truncateDigits(v.x, digits),
-      y: truncateDigits(v.y, digits),
-    };
-  }
-
-  function subtractVectors(v1, v2) {
-    return { x: v1.x - v2.x, y: v1.y - v2.y };
-  }
-
-  function multiplyVector(v, scalar) {
-    return { x: v.x * scalar, y: v.y * scalar };
-  }
-
-  function scaleVectorToRoot2(v) {
-    const scaled = multiplyVector(normalize(v), Math.sqrt(2));
-    return truncateVector(scaled, 2);
   }
 
   function makeScreenShake() {
