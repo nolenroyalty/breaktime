@@ -46,7 +46,6 @@
   will-change: transform, clip-path;
 }
 
-
 .no-collision-zone {
   position: fixed;
   height: calc(var(--height) * 1px);
@@ -62,12 +61,14 @@
 
 @keyframes slideInFromBottom {
   from {
-    transform: translate(var(--translate-x), calc(var(--slide-in-y-amount) + var(--translate-y)));
+    transform: translate(
+      var(--translate-x),
+      calc(var(--slide-in-y-amount) + var(--translate-y))
+    );
   }
   to {
-   transform: translate(var(--translate-x), calc(var(--translate-y)));
+    transform: translate(var(--translate-x), calc(var(--translate-y)));
   }
-
 }
 
 .slide-in-from-bottom {
@@ -77,12 +78,12 @@
 .ball {
   --slide-in-y-amount: 300px;
   position: fixed;
-  left: calc(var(--left)* 1px);
-  top: calc(var(--top)* 1px);
-  width: calc(var(--size)* 1px);
-  height: calc(var(--size)* 1px);
+  left: calc(var(--left) * 1px);
+  top: calc(var(--top) * 1px);
+  width: calc(var(--size) * 1px);
+  height: calc(var(--size) * 1px);
   background-color: var(--ball-background);
-  border-radius: 50%; 
+  border-radius: 50%;
   will-change: transform;
   transition: opacity 1s ease;
   filter: hue-rotate(var(--hue-rotation));
@@ -95,7 +96,8 @@
   display: none;
   z-index: 1000;
   filter: blur(6px) hue-rotate(var(--hue-rotation));
-  transition: opacity 1s ease, filter var(--transform-speed) ease, transform var(--transform-speed) ease;
+  transition: opacity 1s ease, filter var(--transform-speed) ease,
+    transform var(--transform-speed) ease;
 }
 
 @keyframes fading-trail {
@@ -122,10 +124,10 @@
   --slide-in-y-amount: 200px;
   box-sizing: border-box;
   position: fixed;
-  left: calc(var(--left)* 1px);
-  top: calc(var(--top)* 1px);
-  width: calc(var(--width)* 1px);
-  height: calc(var(--height)* 1px);
+  left: calc(var(--left) * 1px);
+  top: calc(var(--top) * 1px);
+  width: calc(var(--width) * 1px);
+  height: calc(var(--height) * 1px);
   background-color: var(--paddle-background);
   border: 2px solid var(--color-grey-transparent);
   border-radius: 2px;
@@ -146,7 +148,8 @@ particle {
   height: var(--height);
   background-color: var(--color);
   position: fixed;
-  filter: brightness(0.9) hue-rotate(var(--hue-rotation)) saturate(var(--saturation));
+  filter: brightness(0.9) hue-rotate(var(--hue-rotation))
+    saturate(var(--saturation));
   z-index: 1000;
   pointer-events: none;
   will-change: transform, opacity;
@@ -170,7 +173,8 @@ particle {
   font-size: 16px;
   font-weight: 500;
   border: 1px solid var(--color-grey-transparent);
-  box-shadow: rgba(60, 64, 67, 0.3) 0px 1px 3px 0px, rgba(60, 64, 67, 0.15) 0px 4px 8px 3px;
+  box-shadow: rgba(60, 64, 67, 0.3) 0px 1px 3px 0px,
+    rgba(60, 64, 67, 0.15) 0px 4px 8px 3px;
   display: flex;
   align-items: stretch;
   min-width: 320px;
@@ -223,7 +227,7 @@ particle {
   cursor: pointer;
 }
 
-.decline-events-modal-close:hover .x-icon{
+.decline-events-modal-close:hover .x-icon {
   fill: black;
 }
 
@@ -284,8 +288,9 @@ particle {
   z-index: 3000;
   border-radius: 8px;
   padding: 10px;
-  background-color: var(--color-faded-grey);
+  /* background-color: var(--color-faded-grey); */
+  background-color: white;
   border: 1px solid var(--google-grey-transparent);
   transition: opacity 0.3s ease;
-  backdrop-filter: blur(4px);
+  /* backdrop-filter: blur(4px); */
 }

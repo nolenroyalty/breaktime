@@ -234,11 +234,11 @@ function createXIcon(parent) {
   return createSvgIcon(parent, ["x-icon"], paths);
 }
 
-function createEventDeclineModal(
+function createEventDeclineModal({
   titleText,
   declineEvents,
-  clearDeclinedEvents
-) {
+  exitWithoutDeclining,
+}) {
   const modal = createElt({ classList: ["decline-events-modal"] });
 
   const dismiss = () => {
@@ -250,7 +250,7 @@ function createEventDeclineModal(
   };
 
   const dismissAndClear = () => {
-    clearDeclinedEvents();
+    exitWithoutDeclining();
     dismiss();
   };
 
@@ -1379,16 +1379,8 @@ function main() {
     return beginLoop;
   }
 
-  const handleDeclineEvents = async () => {
-    resetEvents();
-    const observer = startDismissObserver();
-    const arr = Array.from(destroyedEvents);
-    for (let i = 0; i < arr.length; i++) {
-      arr[i].click();
-      await waitForDialogsToClear();
-    }
-    destroyedEvents.clear();
-    observer.disconnect();
+  const signalToChromeThatWeAreDone = () => {
+    chrome.runtime.sendMessage({ action: "gameFinished" });
   };
 
   const fadeOutGame = () => {
@@ -1407,9 +1399,25 @@ function main() {
 
   const endModal = (text) => {
     fadeOutGame();
-    createEventDeclineModal(text, handleDeclineEvents, () => {
-      destroyedEvents.clear();
-      resetEvents();
+    createEventDeclineModal({
+      titleText: text,
+      declineEvents: async () => {
+        resetEvents();
+        const observer = startDismissObserver();
+        const arr = Array.from(destroyedEvents);
+        for (let i = 0; i < arr.length; i++) {
+          arr[i].click();
+          await waitForDialogsToClear();
+        }
+        destroyedEvents.clear();
+        observer.disconnect();
+        signalToChromeThatWeAreDone();
+      },
+      exitWithoutDeclining: () => {
+        destroyedEvents.clear();
+        resetEvents();
+        signalToChromeThatWeAreDone();
+      },
     });
   };
 
@@ -1422,6 +1430,7 @@ function main() {
       fadeOutGame();
       setTimeout(() => {
         startInstructions.remove();
+        signalToChromeThatWeAreDone();
       }, 300);
     } else {
       GAME_STATE = "ended";
